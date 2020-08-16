@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "ccxt": "^1.33.7"
+    "ccxt": "^1.33.7",
+    "nodemailer": "^6.4.11"
   }
 }
