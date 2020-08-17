@@ -109,7 +109,7 @@ const create_buy_limit_param_array = (start, delta_pc, bin_size, info, budget) =
 
     // for linear weighted sizes, use the arithmetic progression Sn = n(a1+an)/2
     const step_size = Math.floor(budget / (bin_size * (start + end) / 2 * (1 + info.taker)) * 10 ** dec_size) / 10 ** dec_size;
-    
+
     // validation, execute if trade parameters are within limits
     const lowest_quote = step_size * end;
     if (step_size < info.limits.amount.min) {
@@ -156,14 +156,19 @@ let email_sent = false;
 const email_hour = 5;
 const email_minute = 30;
 let aoc_done = false;
-const aoc_hour = 5;
-const aoc_minute = 0;
+const aoc_hour = 22;
+const aoc_minute = 8;
 
-const main_timer = setInterval(() => {
+const main_timer = setInterval(async () => {
 
     let tmstmp_current = new Date();
     let hour = tmstmp_current.getHours();
     let minute = tmstmp_current.getMinutes();
+    const yesterday = new Date(tmstmp_current)
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    const today_date = tmstmp_current.toJSON().slice(0, 10);
+    const yesterday_date = yesterday.toJSON().slice(0, 10);
 
     if ((hour % period_h === 0) && (minute === 0)) {
         // if ((hour % 1 == 0) && (minute % 5 == 0)) {
@@ -181,6 +186,17 @@ const main_timer = setInterval(() => {
         if (!aoc_done) {
             aoc_done = true;
             console.log('perform AoC report');
+            // record balance file
+            const balance = await coinbasepro.fetchBalance();
+            fs.writeFileSync('./logs/balance_' + today_date + '.json', JSON.stringify(balance));
+            const ticker = {};
+            for (const product of prouduct_scope) {
+                ticker[product] = await coinbasepro.fetchTicker(product);
+            }
+            fs.writeFileSync('./logs/ticker_' + today_date + '.json', JSON.stringify(ticker));
+            console.log('files logged');
+            const date_obj = aoc(yesterday_date, today_date);
+            // generate_html(data_obj);
         }
     } else {
         aoc_done = false;
@@ -195,7 +211,41 @@ const main_timer = setInterval(() => {
     } else {
         email_sent = false;
     }
-
-
-
 }, 1000)
+
+const generate_html = (data_obj) => {
+    fs.readFile('./template.html', 'utf8', (err, data) => {
+        if (err) {
+            return console.log(err);
+        }
+        let result = data.replace("['{{placeholder}}']", JSON.stringify(hcData_summary)).replace("{{date}}", date);
+        fs.writeFile('./hcd/' + date + '.html', result, 'utf8', (err) => {
+            if (err) return console.log(err);
+        });
+    });
+}
+
+const aoc = (t0, t1) => {
+    let data_obj = {};
+    // estimate total portfolio value
+    const t0_balance = require('./logs/balance_' + t0 + '.json');
+    const t0_ticker = require('./logs/ticker_' + t0 + '.json');
+    const t1_balance = require('./logs/balance_' + t1 + '.json');
+    const t1_ticker = require('./logs/ticker_' + t1 + '.json');
+
+    let t0_value, t1_value = 0;
+    let delta = {}
+    for (const product of prouduct_scope) {
+        t0_value += t1_ticker[product] + t1_balance[product];
+        t1_value += t1_ticker[product] + t1_balance[product];
+        delta[product] = t1_balance - t0_balance;
+    }
+    delta['value_abs'] = t1_value - t0_value;
+    delta['value_pc'] = (t1_value - t0_value) / t0_value * 100;
+
+    // calculate total transfers in
+
+    // work out total change in value % so far
+    console.log(delta)
+    return data_obj
+}
