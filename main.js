@@ -157,7 +157,7 @@ const email_hour = 5;
 const email_minute = 30;
 let aoc_done = false;
 const aoc_hour = 22;
-const aoc_minute = 8;
+const aoc_minute = 22;
 
 const main_timer = setInterval(async () => {
 
@@ -182,7 +182,7 @@ const main_timer = setInterval(async () => {
     }
 
     // scheduled daily aoc reporting process
-    if (hour === aoc_hour && minute === aoc_minute) {
+    if (hour === aoc_hour && minute === minute) {
         if (!aoc_done) {
             aoc_done = true;
             console.log('perform AoC report');
@@ -225,27 +225,79 @@ const generate_html = (data_obj) => {
     });
 }
 
-const aoc = (t0, t1) => {
-    let data_obj = {};
-    // estimate total portfolio value
-    const t0_balance = require('./logs/balance_' + t0 + '.json');
-    const t0_ticker = require('./logs/ticker_' + t0 + '.json');
-    const t1_balance = require('./logs/balance_' + t1 + '.json');
-    const t1_ticker = require('./logs/ticker_' + t1 + '.json');
+const aoc = async (t0, t1) => {
 
-    let t0_value, t1_value = 0;
-    let delta = {}
-    for (const product of prouduct_scope) {
-        t0_value += t1_ticker[product] + t1_balance[product];
-        t1_value += t1_ticker[product] + t1_balance[product];
-        delta[product] = t1_balance - t0_balance;
+    try {
+        const t0_balance = require('./logs/balance_' + t0 + '.json');
+        const t0_ticker = require('./logs/ticker_' + t0 + '.json');
+        const t1_balance = require('./logs/balance_' + t1 + '.json');
+        const t1_ticker = require('./logs/ticker_' + t1 + '.json');
+
+        let data_obj = {};
+        // estimate total portfolio value
+        let t0_value = 0; let t1_value = 0;
+        let delta = {}; let snapshot = {};
+
+        for (const product of prouduct_scope) {
+            const currency = product.split('/')[0];
+            t0_value += t0_ticker[product].bid * t0_balance[currency].total;
+            t1_value += t1_ticker[product].bid * t1_balance[currency].total;
+            snapshot[currency] = t1_balance[currency].total;
+            delta[currency + '_abs'] = t1_balance[currency].total - t0_balance[currency].total;
+            delta[currency + '_pc'] = delta[currency + '_abs'] / t0_balance[currency].total;
+        }
+
+        t0_value += t0_balance[quote_currency].total;
+        t1_value += t1_balance[quote_currency].total;
+
+        snapshot[quote_currency] = t1_balance[quote_currency].total;
+        snapshot['value'] = t1_value;
+
+        delta[quote_currency + '_abs'] = t1_balance[quote_currency].total - t0_balance[quote_currency].total;
+        delta[quote_currency + '_pc'] = delta[quote_currency + '_abs'] / t0_balance[quote_currency].total;
+        delta['value_abs'] = t1_value - t0_value;
+        delta['value_pc'] = delta['value_abs'] / t0_value * 100;
+
+        // calculate total transfers in and obtain other ledger data in last 24 hrs
+        let after = ''
+        let allLedger = []
+        while (true) {
+            const limit = 100 // change for your limit
+            const params = { id: config.coinbase_dca_account_id, after, limit }
+            const trades = await coinbasepro.privateGetAccountsIdLedger(params)
+            if (trades.length) {
+                after = coinbasepro.last_response_headers['Cb-After'];
+                allLedger.push(...trades)
+            } else {
+                break
+            }
+            // console.log(`after: ${after} `)
+        }
+        fs.writeFileSync('./logs/ledger_' + today_date + '.json', JSON.stringify(allLedger));
+        let transfer_value = 0;
+        allLedger.forEach(element => {
+            // console.log(element);
+            if (element.type === 'transfer') {
+                transfer_value += Number(element.amount);
+                // console.log(element.created_at, element.amount);
+            }
+            // filter out ones in last 24hr
+            
+        });
+        snapshot['transfer'] = transfer_value;
+        delta['transfer_abs'] = snapshot['value'] - transfer_value;
+        delta['transfer_pc'] = snapshot['value'] / transfer_value - 1;
+
+        // work out total change in value % so far
+        data_obj = {
+            delta,
+            snapshot,
+        }
+        console.log(data_obj);
+        return data_obj
+    } catch (error) {
+        console.log(error);
+        return;
     }
-    delta['value_abs'] = t1_value - t0_value;
-    delta['value_pc'] = (t1_value - t0_value) / t0_value * 100;
 
-    // calculate total transfers in
-
-    // work out total change in value % so far
-    console.log(delta)
-    return data_obj
 }
