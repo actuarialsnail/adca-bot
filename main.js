@@ -1,6 +1,6 @@
 'use strict';
 const config = require('./config/config.js');
-const { wait, mailer } = require('./utilities');
+const { wait, send_mail } = require('./utilities');
 const ccxt = require('ccxt');
 const coinbasepro_credential = config.credential.coinbase_dca;
 const fs = require('fs');
@@ -153,11 +153,11 @@ const batch_request = async (exchange, req_obj) => {
 
 let limits_reset = false;
 let email_sent = false;
-const email_hour = 5;
+const email_hour = 21;
 const email_minute = 30;
 let aoc_done = false;
-const aoc_hour = 20;
-const aoc_minute = 22;
+const aoc_hour = 5;
+const aoc_minute = 10;
 
 const main_timer = setInterval(async () => {
 
@@ -203,10 +203,11 @@ const main_timer = setInterval(async () => {
     }
 
     // scheduled daily email notification
-    if (hour === email_hour && minute === email_minute) {
+    if (hour === email_hour && minute === minute) {
         if (!email_sent) {
             email_sent = true;
             console.log('email AoC report');
+            send_mail('aoc', 'Attached.', 'report_' + today_date + '.html');
         }
     } else {
         email_sent = false;
@@ -214,7 +215,7 @@ const main_timer = setInterval(async () => {
 }, 1000)
 
 const generate_html = (data_obj) => {
-    console.log(data_obj);
+    // console.log(data_obj);
     const map = {
         '{{date}}': data_obj.t1,
         '{{value}}': data_obj.snapshot.value.toFixed(2),
@@ -242,7 +243,6 @@ const generate_html = (data_obj) => {
         for (const item in map) {
             result = result.replace(item, map[item])
         }
-        // let result = data.replace("['{{placeholder}}']", JSON.stringify(hcData_summary)).replace("{{date}}", date);
         fs.writeFile('./reports/report_' + data_obj.t1 + '.html', result, 'utf8', (err) => {
             if (err) return console.log(err);
         });

@@ -7,12 +7,18 @@ const transporter = nodemailer.createTransport(config.arbitorCoinNodeMailerCred)
 const from = config.arbitorCoinNodeMailerCred.auth.user;
 const to = config.nodemailRecipients;
 
-const sendMail = (type, msg, filename) => {
+const send_mail = (type, msg, filename) => {
     let mailOptions = { from, to };
 
     switch (type) {
         case 'aoc':
-
+            mailOptions.subject = 'DCA summary';
+            mailOptions.text = msg;
+            mailOptions.attachments = [
+                {
+                    filename, path: './reports/' + filename,
+                },
+            ]
             break;
 
         default:
@@ -35,5 +41,5 @@ async function wait(ms) {
 }
 
 module.exports = {
-    wait, sendMail
+    wait, send_mail
 };
