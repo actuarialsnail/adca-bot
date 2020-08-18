@@ -153,7 +153,7 @@ const batch_request = async (exchange, req_obj) => {
 
 let limits_reset = false;
 let email_sent = false;
-const email_hour = 21;
+const email_hour = 5;
 const email_minute = 30;
 let aoc_done = false;
 const aoc_hour = 5;
@@ -182,7 +182,7 @@ const main_timer = setInterval(async () => {
     }
 
     // scheduled daily aoc reporting process
-    if (hour === aoc_hour && minute === minute) {
+    if (hour === aoc_hour && minute === aoc_minute) {
         if (!aoc_done) {
             aoc_done = true;
             console.log('perform AoC report');
@@ -203,7 +203,7 @@ const main_timer = setInterval(async () => {
     }
 
     // scheduled daily email notification
-    if (hour === email_hour && minute === minute) {
+    if (hour === email_hour && minute === email_minute) {
         if (!email_sent) {
             email_sent = true;
             console.log('email AoC report');
