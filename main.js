@@ -156,7 +156,7 @@ let email_sent = false;
 const email_hour = 5;
 const email_minute = 30;
 let aoc_done = false;
-const aoc_hour = 22;
+const aoc_hour = 20;
 const aoc_minute = 22;
 
 const main_timer = setInterval(async () => {
@@ -195,8 +195,8 @@ const main_timer = setInterval(async () => {
             }
             fs.writeFileSync('./logs/ticker_' + today_date + '.json', JSON.stringify(ticker));
             console.log('files logged');
-            const date_obj = aoc(yesterday_date, today_date);
-            // generate_html(data_obj);
+            const data_obj = await aoc(yesterday_date, today_date);
+            generate_html(data_obj);
         }
     } else {
         aoc_done = false;
@@ -214,12 +214,36 @@ const main_timer = setInterval(async () => {
 }, 1000)
 
 const generate_html = (data_obj) => {
+    console.log(data_obj);
+    const map = {
+        '{{date}}': data_obj.t1,
+        '{{value}}': data_obj.snapshot.value.toFixed(2),
+        '{{return_abs}}': data_obj.delta.transfer_abs.toFixed(2),
+        '{{return_pc}}': data_obj.delta.transfer_pc.toFixed(1),
+        '{{r_24hr_abs}}': data_obj.delta.value_abs.toFixed(2),
+        '{{r_24hr_pc}}': data_obj.delta.value_pc.toFixed(1),
+        '{{btc_value}}': data_obj.snapshot.BTC.toFixed(6),
+        '{{btc_delta_abs}}': data_obj.delta.BTC_abs.toFixed(6),
+        '{{btc_delta_pc}}': data_obj.delta.BTC_abs.toFixed(1),
+        '{{eth_value}}': data_obj.snapshot.ETH.toFixed(6),
+        '{{eth_delta_abs}}': data_obj.delta.ETH_abs.toFixed(6),
+        '{{eth_delta_pc}}': data_obj.delta.ETH_pc.toFixed(1),
+        '{{gbp_value}}': data_obj.snapshot.GBP.toFixed(2),
+        '{{gbp_delta_abs}}': data_obj.delta.GBP_abs.toFixed(2),
+        '{{gbp_delta_pc}}': data_obj.delta.GBP_pc.toFixed(1),
+        '{{transfer}}': data_obj.snapshot.transfer.toFixed(2),
+    }
+
     fs.readFile('./template.html', 'utf8', (err, data) => {
         if (err) {
             return console.log(err);
         }
-        let result = data.replace("['{{placeholder}}']", JSON.stringify(hcData_summary)).replace("{{date}}", date);
-        fs.writeFile('./hcd/' + date + '.html', result, 'utf8', (err) => {
+        let result = data;
+        for (const item in map) {
+            result = result.replace(item, map[item])
+        }
+        // let result = data.replace("['{{placeholder}}']", JSON.stringify(hcData_summary)).replace("{{date}}", date);
+        fs.writeFile('./reports/report_' + data_obj.t1 + '.html', result, 'utf8', (err) => {
             if (err) return console.log(err);
         });
     });
@@ -273,7 +297,7 @@ const aoc = async (t0, t1) => {
             }
             // console.log(`after: ${after} `)
         }
-        fs.writeFileSync('./logs/ledger_' + today_date + '.json', JSON.stringify(allLedger));
+        fs.writeFileSync('./logs/ledger_' + t1 + '.json', JSON.stringify(allLedger));
         let transfer_value = 0;
         allLedger.forEach(element => {
             // console.log(element);
@@ -282,18 +306,20 @@ const aoc = async (t0, t1) => {
                 // console.log(element.created_at, element.amount);
             }
             // filter out ones in last 24hr
-            
+
         });
         snapshot['transfer'] = transfer_value;
         delta['transfer_abs'] = snapshot['value'] - transfer_value;
-        delta['transfer_pc'] = snapshot['value'] / transfer_value - 1;
+        delta['transfer_pc'] = (snapshot['value'] / transfer_value - 1) * 100;
 
         // work out total change in value % so far
         data_obj = {
+            t0,
+            t1,
             delta,
             snapshot,
         }
-        console.log(data_obj);
+        // console.log(data_obj);
         return data_obj
     } catch (error) {
         console.log(error);

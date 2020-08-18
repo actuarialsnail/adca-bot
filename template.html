@@ -29,11 +29,43 @@
                     Coinbase
                 </div>
                 <div class="card-body">
-                    <h5 class="card-title"> £{{value}} {{return}}%</h5>
-                    <p class="card-text">24hr value: {{24hr}}%</p>
-                    <p class="card-text">BTC: {{btc_value}} {{btc_delta}}</p>
-                    <p class="card-text">ETH: {{eth_value}} {{eth_delta}</p>
-                    <p class="card-text">GBP: {{gbp_value}} {{gbp_delta}</p>
+
+                    <table class="table table-borderless table-sm">
+                        <thead>
+                            <tr>
+                                <th scope="col"></th>
+                                <th scope="col">£{{value}}</th>
+                                <th scope="col">£{{return_abs}}</th>
+                                <th scope="col">{{return_pc}}%</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <th scope="row">24hr</th>
+                                <td></td>
+                                <td>£{{r_24hr_abs}}</td>
+                                <td>{{r_24hr_pc}}%</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">BTC</th>
+                                <td>{{btc_value}}</td>
+                                <td>{{btc_delta_abs}}</td>
+                                <td>{{btc_delta_pc}}%</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">ETH</th>
+                                <td>{{eth_value}}</td>
+                                <td>{{eth_delta_abs}}</td>
+                                <td>{{eth_delta_pc}}%</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">GBP</th>
+                                <td>{{gbp_value}}</td>
+                                <td>{{gbp_delta_abs}}</td>
+                                <td>{{gbp_delta_pc}}%</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
                 <div class="card-footer text-muted">
                     Total transferred in: £{{transfer}}
