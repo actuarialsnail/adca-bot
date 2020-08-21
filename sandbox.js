@@ -17,7 +17,9 @@ const fs = require('fs');
     // console.log(coinbasepro.id, await coinbasepro.fetchMarkets());
     // const market_info = await coinbasepro.loadMarkets();
     // fs.writeFileSync('./logs/market_' + '2020-08-16' + '.json', JSON.stringify(market_info));
-    console.log(coinbasepro.id, coinbasepro.has);
+    // console.log(coinbasepro.id, await coinbasepro.privateGetPaymentMethods());
+    
+    //POST /profiles/transfer - to test
 
     // console.log(new ccxt.coinbasepro())
     // console.log(await coinbasepro.fetchTicker('BTC/GBP'))
