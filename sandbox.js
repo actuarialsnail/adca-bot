@@ -12,13 +12,18 @@ const fs = require('fs');
         secret: coinbasepro_credential.base64secret,
         password: coinbasepro_credential.passphrase
     });
+    console.log(coinbasepro.has)
+    // console.log(coinbasepro.id, await coinbasepro.fetchOrders());
+    // await coinbasepro.createOrder('ETH/GBP', 'limit', 'buy', 0.1, 50);
+    // console.log(coinbasepro.id, await coinbasepro.fetchClosedOrders());
+    // console.log(coinbasepro.id, await coinbasepro.fetchOpenOrders());
     // let coinbasepro_markets = await coinbasepro.loadMarkets();
     // console.log(coinbasepro_markets['BTC/GBP']);
     // console.log(coinbasepro.id, await coinbasepro.fetchMarkets());
     // const market_info = await coinbasepro.loadMarkets();
     // fs.writeFileSync('./logs/market_' + '2020-08-16' + '.json', JSON.stringify(market_info));
     // console.log(coinbasepro.id, await coinbasepro.privateGetPaymentMethods());
-    
+
     //POST /profiles/transfer - to test
 
     // console.log(new ccxt.coinbasepro())

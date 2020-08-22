@@ -1,6 +1,7 @@
 'use strict';
 const config = require('./config/config.js');
 const { wait, send_mail } = require('./utilities');
+const config = require('./config/config.js');
 const ccxt = require('ccxt');
 const coinbasepro_credential = config.credential.coinbase_dca;
 const fs = require('fs');
@@ -22,6 +23,35 @@ const price_upperb_pc = 10;
 const trade_mode = 'buy_sell'; //'buy_only' 'sell_only' 'buy_sell'
 const prouduct_scope = ['BTC/GBP', 'ETH/GBP'];
 const quote_currency = 'GBP';
+
+const coinbasepro_ws = new CoinbasePro.WebsocketClient(
+    ['BTC-GBP', 'ETH-GBP'],
+    'wss://ws-feed.pro.coinbase.com',
+    {
+        key: coinbasepro_credential.apikey,
+        secret: coinbasepro_credential.base64secret,
+        passphrase: coinbasepro_credential.passphrase,
+    },
+    { channels: ['user'] }
+);
+
+coinbasepro_ws.on('message', data => {
+    if (data.type === 'heartbeat') {
+        // do nothing
+    } else {
+        console.log('websocket user channel data', data);
+        if (data.type === 'match' && data.side === 'buy' && data.order_type === 'limit') {
+            // submit sell limit
+        }
+    }
+
+});
+coinbasepro_ws.on('error', err => {
+    /* handle error */
+});
+coinbasepro_ws.on('close', () => {
+    /* ... */
+});
 
 const main = async () => {
 
