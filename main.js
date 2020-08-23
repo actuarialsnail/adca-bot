@@ -1,10 +1,10 @@
 'use strict';
-const config = require('./config/config.js');
 const { wait, send_mail } = require('./utilities');
 const config = require('./config/config.js');
 const ccxt = require('ccxt');
 const coinbasepro_credential = config.credential.coinbase_dca;
 const fs = require('fs');
+const CoinbasePro = require('coinbase-pro');
 
 let coinbasepro = new ccxt.coinbasepro({
     apiKey: coinbasepro_credential.apikey,
