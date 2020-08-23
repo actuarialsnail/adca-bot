@@ -19,7 +19,7 @@ let exchange_scope = {
 const period_h = 4;
 const bin_size = 5;
 const price_lowerb_pc = 5;
-const price_upperb_pc = 10;
+const price_upperb_pc = 5;
 const trade_mode = 'buy_sell'; //'buy_only' 'sell_only' 'buy_sell'
 const prouduct_scope = ['BTC/GBP', 'ETH/GBP'];
 const quote_currency = 'GBP';
@@ -39,18 +39,21 @@ coinbasepro_ws.on('message', data => {
     if (data.type === 'heartbeat') {
         // do nothing
     } else {
-        console.log('websocket user channel data', data);
+        console.log('websocket user channel feed:', data);
         if (data.type === 'match' && data.side === 'buy' && data.order_type === 'limit') {
+            const dec = 2;
+            const price = Math.floor(data.price * (1 + price_upperb_pc / 100) * 10 ** dec) / 10 ** dec;
             // submit sell limit
+            coinbasepro.createOrder(data.product_id.replace('-', '/'), 'limit', 'sell', data.size, price);
         }
     }
-
 });
+
 coinbasepro_ws.on('error', err => {
-    /* handle error */
+    console.log('websocket user channel error:', err);
 });
 coinbasepro_ws.on('close', () => {
-    /* ... */
+    console.log('websocket user channel closed.');
 });
 
 const main = async () => {
