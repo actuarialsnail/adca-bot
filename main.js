@@ -18,8 +18,8 @@ let binance = new ccxt.binance({
 });
 
 let exchange_scope = {
-    // coinbasepro, 
-    binance,
+    coinbasepro, 
+    // binance,
 };
 
 const { period_h, bin_size, price_lowerb_pc, price_upperb_pc, trade_mode, prouduct_scope, quote_currency } = config.settings;
@@ -69,7 +69,12 @@ const coinbasepro_ws = () => {
     });
 }
 
+const binance_ws = () => {
+    
+}
+
 coinbasepro_ws();
+binance_ws()
 
 const main = async () => {
 
