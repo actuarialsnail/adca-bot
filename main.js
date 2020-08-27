@@ -3,6 +3,7 @@ const { wait, send_mail } = require('./utilities');
 const config = require('./config/config.js');
 const ccxt = require('ccxt');
 const coinbasepro_credential = config.credential.coinbase_dca;
+const binance_credential = config.credential.binance;
 const fs = require('fs');
 const CoinbasePro = require('coinbase-pro');
 
@@ -11,9 +12,14 @@ let coinbasepro = new ccxt.coinbasepro({
     secret: coinbasepro_credential.base64secret,
     password: coinbasepro_credential.passphrase
 });
+let binance = new ccxt.binance({
+    apiKey: binance_credential.apiKey,
+    secret: binance_credential.secretKey,
+});
 
 let exchange_scope = {
-    coinbasepro
+    // coinbasepro, 
+    binance,
 };
 
 const { period_h, bin_size, price_lowerb_pc, price_upperb_pc, trade_mode, prouduct_scope, quote_currency } = config.settings;
@@ -69,9 +75,11 @@ const main = async () => {
 
     // check through all open orders and filter out buy limit orders... to do: to also check if product_scope.includes('info.proudct_id')
     for (const exchange in exchange_scope) {
-        let open_orders = await exchange_scope[exchange].fetchOpenOrders();
-        console.log(`${exchange}: ${open_orders.length} open orders found`);
-        await reset_buy_limit_orders(exchange, open_orders, trade_mode);
+        for (const product of prouduct_scope) {
+            let open_orders = await exchange_scope[exchange].fetchOpenOrders(product);
+            console.log(`${exchange}: ${open_orders.length} open orders found for ${product}`);
+            await reset_buy_limit_orders(exchange, open_orders, trade_mode);
+        }
     }
 
     // determine budget
