@@ -16,13 +16,7 @@ let exchange_scope = {
     coinbasepro
 };
 
-const period_h = 4;
-const bin_size = 5;
-const price_lowerb_pc = 5;
-const price_upperb_pc = 5;
-const trade_mode = 'buy_sell'; //'buy_only' 'sell_only' 'buy_sell'
-const prouduct_scope = ['BTC/GBP', 'ETH/GBP'];
-const quote_currency = 'GBP';
+const { period_h, bin_size, price_lowerb_pc, price_upperb_pc, trade_mode, prouduct_scope, quote_currency } = config.settings;
 
 const coinbasepro_ws = () => {
     let coinbase_timeout;
