@@ -24,37 +24,52 @@ const trade_mode = 'buy_sell'; //'buy_only' 'sell_only' 'buy_sell'
 const prouduct_scope = ['BTC/GBP', 'ETH/GBP'];
 const quote_currency = 'GBP';
 
-const coinbasepro_ws = new CoinbasePro.WebsocketClient(
-    ['BTC-GBP', 'ETH-GBP'],
-    'wss://ws-feed.pro.coinbase.com',
-    {
-        key: coinbasepro_credential.apikey,
-        secret: coinbasepro_credential.base64secret,
-        passphrase: coinbasepro_credential.passphrase,
-    },
-    { channels: ['user'] }
-);
+const coinbasepro_ws = () => {
+    let coinbase_timeout;
+    const ws = new CoinbasePro.WebsocketClient(
+        ['BTC-GBP', 'ETH-GBP'],
+        'wss://ws-feed.pro.coinbase.com',
+        {
+            key: coinbasepro_credential.apikey,
+            secret: coinbasepro_credential.base64secret,
+            passphrase: coinbasepro_credential.passphrase,
+        },
+        { channels: ['user'] }
+    );
 
-coinbasepro_ws.on('message', data => {
-    if (data.type === 'heartbeat') {
-        // do nothing
-    } else {
-        console.log('websocket user channel feed:', data);
-        if (data.type === 'match' && data.side === 'buy' && data.order_type === 'limit') {
-            const dec = 2;
-            const price = Math.floor(data.price * (1 + price_upperb_pc / 100) * 10 ** dec) / 10 ** dec;
-            // submit sell limit
-            coinbasepro.createOrder(data.product_id.replace('-', '/'), 'limit', 'sell', data.size, price);
+    ws.on('open', () => {
+        console.log('coinbase websocket connected at:', new Date());
+        coinbase_timeout = setTimeout(() => {
+            console.log('scheduled reconnection of coinbase websocket connection');
+            try { ws.disconnect() } catch (err) { console.log(err) };
+        }, 60 * 60 * 1000); //force restart websocket - avoid ws freezing with no close event firing
+    });
+
+    ws.on('message', data => {
+        if (data.type === 'heartbeat') {
+            // do nothing
+        } else {
+            console.log('websocket user channel feed:', data);
+            if (data.type === 'match' && data.side === 'buy' && data.order_type === 'limit') {
+                const dec = 2;
+                const price = Math.floor(data.price * (1 + price_upperb_pc / 100) * 10 ** dec) / 10 ** dec;
+                // submit sell limit
+                coinbasepro.createOrder(data.product_id.replace('-', '/'), 'limit', 'sell', data.size, price);
+            }
         }
-    }
-});
+    });
 
-coinbasepro_ws.on('error', err => {
-    console.log('websocket user channel error:', err);
-});
-coinbasepro_ws.on('close', () => {
-    console.log('websocket user channel closed.');
-});
+    ws.on('error', err => {
+        console.log('websocket user channel error:', err);
+    });
+    ws.on('close', () => {
+        console.log('coinbase websocket connection closed, reconnecting in 3s...');
+        clearTimeout(coinbase_timeout);
+        setTimeout(() => { coinbasepro_ws(); }, 3000);
+    });
+}
+
+coinbasepro_ws();
 
 const main = async () => {
 
