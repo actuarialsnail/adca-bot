@@ -103,7 +103,7 @@ const main = async () => {
 
             // request best bid/offer
             const product_price = await coinbasepro.fetchTicker(product);
-            console.log(product_price);
+            console.log('product price', product_price);
 
             orders[product] = create_buy_limit_param_array(product_price.bid, -price_lowerb_pc, bin_size, product_info, product_budget);
             // console.log(orders[product]);
@@ -178,7 +178,7 @@ const create_buy_limit_param_array = (start, delta_pc, bin_size, info, budget) =
 }
 
 const batch_request = async (exchange, req_obj) => {
-    console.log(req_obj);
+    console.log('request object', req_obj);
     for (const product in req_obj) {
         for (const req of req_obj[product]) {
             switch (req.type) {
