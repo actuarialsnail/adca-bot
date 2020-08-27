@@ -201,6 +201,8 @@ let aoc_done = false;
 const aoc_hour = 5;
 const aoc_minute = 10;
 
+main();
+
 const main_timer = setInterval(async () => {
 
     let tmstmp_current = new Date();
