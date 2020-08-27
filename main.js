@@ -44,7 +44,7 @@ const coinbasepro_ws = () => {
             // do nothing
         } else {
             console.log('websocket user channel feed:', data);
-            if (data.type === 'match' && data.side === 'buy' && data.order_type === 'limit') {
+            if (data.type === 'match' && data.side === 'buy') {
                 const dec = 2;
                 const price = Math.floor(data.price * (1 + price_upperb_pc / 100) * 10 ** dec) / 10 ** dec;
                 // submit sell limit
