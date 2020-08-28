@@ -80,22 +80,38 @@ const binance_ws = () => {
 
         ws.on('open', () => {
             console.log('binance websocket connected at:', new Date())
+            setTimeout(() => {
+                ws.close();
+            }, 60 * 60 * 1000)
         });
 
-        ws.on('message', data => {
+        ws.on('message', msg => {
+            // console.log(msg);
+            let data;
+            try {
+                data = JSON.parse(msg);
+            } catch (e) {
+                console.log('json error', e)
+            }
+
             if (data.e === 'executionReport') {
+                console.log('executionReport', data);
                 if (data.S === 'BUY' && data.o === 'LIMIT' && data.x === 'TRADE') {
                     const dec = 2;
                     const price = Math.floor(Number(data.p) * (1 + price_upperb_pc / 100) * 10 ** dec) / 10 ** dec;
                     // submit sell limit
                     const symbol = data.s.substring(0, 3) + '/' + data.s.substring(3, 6);
-                    binance.createOrder(symbol, 'limit', 'sell', Number(data.q), price); I
+                    binance.createOrder(symbol, 'limit', 'sell', Number(data.l), price);
                 }
             }
         });
 
         ws.on('error', err => {
             console.log('binance websocket user channel error:', err)
+        })
+
+        ws.on('close', () => {
+            console.log('binance websocket connection closed, reconnecting...');
         })
     }
     init_ws();
@@ -243,7 +259,7 @@ let aoc_done = false;
 const aoc_hour = 5;
 const aoc_minute = 10;
 
-// main();
+main();
 
 const main_timer = setInterval(async () => {
 
