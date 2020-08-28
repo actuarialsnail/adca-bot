@@ -19,7 +19,7 @@ let binance = new ccxt.binance({
 });
 
 let exchange_scope = {
-    // coinbasepro, 
+    coinbasepro, 
     binance,
 };
 
