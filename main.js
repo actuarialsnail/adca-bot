@@ -1,5 +1,6 @@
 'use strict';
 const { wait, send_mail } = require('./utilities');
+const WebSocket = require('ws');
 const config = require('./config/config.js');
 const ccxt = require('ccxt');
 const coinbasepro_credential = config.credential.coinbase_dca;
@@ -18,8 +19,8 @@ let binance = new ccxt.binance({
 });
 
 let exchange_scope = {
-    coinbasepro, 
-    // binance,
+    // coinbasepro, 
+    binance,
 };
 
 const { period_h, bin_size, price_lowerb_pc, price_upperb_pc, trade_mode, prouduct_scope, quote_currency } = config.settings;
@@ -60,8 +61,9 @@ const coinbasepro_ws = () => {
     });
 
     ws.on('error', err => {
-        console.log('websocket user channel error:', err);
+        console.log('coinbase websocket user channel error:', err);
     });
+
     ws.on('close', () => {
         console.log('coinbase websocket connection closed, reconnecting in 3s...');
         clearTimeout(coinbase_timeout);
@@ -70,7 +72,34 @@ const coinbasepro_ws = () => {
 }
 
 const binance_ws = () => {
-    
+
+    const init_ws = async () => {
+        const binance_listenkey = await binance.public_post_userdatastream();
+        console.log('binance listenkey obtained', binance_listenkey);
+        const ws = new WebSocket('wss://stream.binance.com:9443/ws/' + binance_listenkey.listenKey);
+
+        ws.on('open', () => {
+            console.log('binance websocket connected at:', new Date())
+        });
+
+        ws.on('message', data => {
+            if (data.e === 'executionReport') {
+                if (data.S === 'BUY' && data.o === 'LIMIT' && data.x === 'TRADE') {
+                    const dec = 2;
+                    const price = Math.floor(Number(data.p) * (1 + price_upperb_pc / 100) * 10 ** dec) / 10 ** dec;
+                    // submit sell limit
+                    const symbol = data.s.substring(0, 3) + '/' + data.s.substring(3, 6);
+                    binance.createOrder(symbol, 'limit', 'sell', Number(data.q), price); I
+                }
+            }
+        });
+
+        ws.on('error', err => {
+            console.log('binance websocket user channel error:', err)
+        })
+    }
+    init_ws();
+    setInterval(init_ws, 60 * 60 * 1000); // as per binance API, user datastream resets every hour
 }
 
 coinbasepro_ws();
@@ -195,7 +224,7 @@ const batch_request = async (exchange, req_obj) => {
                     break;
                 case 'cancel':
                     console.log(`sending cancel order request to ${exchange}`, req);
-                    await exchange_scope[exchange].cancelOrder(req.id);
+                    await exchange_scope[exchange].cancelOrder(req.id, req.symbol);
                     await wait(500);
                     break;
                 default:
@@ -214,7 +243,7 @@ let aoc_done = false;
 const aoc_hour = 5;
 const aoc_minute = 10;
 
-main();
+// main();
 
 const main_timer = setInterval(async () => {
 
