@@ -19,7 +19,7 @@ let binance = new ccxt.binance({
 });
 
 let exchange_scope = {
-    coinbasepro, 
+    coinbasepro,
     binance,
 };
 
@@ -82,7 +82,7 @@ const binance_ws = () => {
             console.log('binance websocket connected at:', new Date())
             setTimeout(() => {
                 ws.close();
-            }, 60 * 60 * 1000)
+            }, 60 * 60 * 1000 - 2)
         });
 
         ws.on('message', msg => {
@@ -115,7 +115,7 @@ const binance_ws = () => {
         })
     }
     init_ws();
-    setInterval(init_ws, 60 * 60 * 1000); // as per binance API, user datastream resets every hour
+    setInterval(init_ws, 60 * 60 * 1000 - 1); // as per binance API, user datastream resets every hour
 }
 
 coinbasepro_ws();
