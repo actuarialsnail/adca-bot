@@ -7,6 +7,9 @@ const coinbasepro_credential = config.credential.coinbase_dca;
 const binance_credential = config.credential.binance;
 const fs = require('fs');
 const CoinbasePro = require('coinbase-pro');
+const taapi = require("taapi");
+
+const taapi_client = taapi.client(config.credential.taapi.secret);
 
 let coinbasepro = new ccxt.coinbasepro({
     apiKey: coinbasepro_credential.apikey,
@@ -123,6 +126,19 @@ binance_ws()
 
 const main = async () => {
 
+    const bb_lower = {};
+    // pre-load periodic technical indicators
+    for (const product of prouduct_scope) {
+        const api_res = await taapi_client.getIndicator(
+            "bbands", "binance", product, config.settings.indicators.bbands.timeframe,
+            {
+                optInTimePeriod: config.settings.indicators.bbands.period,
+                optInNbDevDn: config.settings.indicators.bbands.std,
+            }
+        );
+        bb_lower[product] = api_res.valueLowerBand;
+    }
+
     // check through all open orders and filter out buy limit orders... to do: to also check if product_scope.includes('info.proudct_id')
     for (const exchange in exchange_scope) {
         for (const product of prouduct_scope) {
@@ -148,14 +164,19 @@ const main = async () => {
         for (const product of prouduct_scope) {
             const product_info = markets_info[product];
             const dec = product_info.precision.price;
-            const product_budget = Math.floor(balance[exchange] / prouduct_scope.length * 10 ** dec) / (10 ** dec);
+            const product_max_budget = Math.floor(balance[exchange] / prouduct_scope.length * 10 ** dec) / (10 ** dec);
+            const product_budget = Math.min(product_max_budget, config.settings.exchanges[exchange].budget[product])
+            console.log(`${exchange} budget set for ${product}: ${product_budget}`);
             // const product_budget = 250; // for testing only
 
             // request best bid/offer
             const product_price = await coinbasepro.fetchTicker(product);
             console.log('product price', product_price);
 
-            orders[product] = create_buy_limit_param_array(product_price.bid, -price_lowerb_pc, bin_size, product_info, product_budget);
+            const start = product_price.bid;
+            const end = Math.min(start * (1 - price_lowerb_pc / 100), bb_lower[product]);
+            console.log(`start price: ${start} end price: ${end}, lower of ${price_lowerb_pc}% and ${bb_lower[product]}`);
+            orders[product] = create_buy_limit_param_array(start, end, bin_size, product_info, product_budget);
             // console.log(orders[product]);
         }
 
@@ -196,11 +217,10 @@ const create_cancel_param_obj = (open_orders) => {
 }
 
 // order param array builder
-const create_buy_limit_param_array = (start, delta_pc, bin_size, info, budget) => {
+const create_buy_limit_param_array = (start, end, bin_size, info, budget) => {
 
     let order_param_array = [];
 
-    const end = start * (1 + delta_pc / 100);
     const delta_price = (start - end) / (bin_size) //first limit order with start less one step
 
     // for rounding

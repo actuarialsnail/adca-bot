@@ -5,14 +5,34 @@ const ccxt = require('ccxt');
 const coinbasepro_credential = config.credential.coinbase_dca;
 const binance_credential = config.credential.binance;
 const fs = require('fs');
+const CoinbasePro = require('coinbase-pro');
+const taapi = require("taapi");
 
 (async function () {
 
-    let coinbasepro = new ccxt.coinbasepro({
-        apiKey: coinbasepro_credential.apikey,
-        secret: coinbasepro_credential.base64secret,
-        password: coinbasepro_credential.passphrase
-    });
+    const taapi_client = taapi.client(config.credential.taapi.secret);
+    const api_res = await taapi_client.getIndicator(
+        "bbands", "binance", "BTC/GBP", config.settings.indicators.bbands.timeframe,
+        {
+            optInTimePeriod: config.settings.indicators.bbands.period,
+            optInNbDevDn: config.settings.indicators.bbands.std,
+        }
+    );
+    console.log(api_res.valueLowerBand);
+    // console.log(await client.getIndicator("bbands", "binance", "BTC/GBP", "1d", { optInTimePeriod: 20 }).valueLowerBand);
+    // console.log(await client.getIndicator("bbands", "binance", "BTC/GBP", "1d", { optInTimePeriod: 5 }).valueLowerBand);
+
+    // const orderbook = new CoinbasePro.Orderbook();
+    // const orderbookSync = new CoinbasePro.OrderbookSync(['BTC-USD', 'ETH-USD']);
+    // setInterval(() => {
+    //     console.log(orderbookSync.books['ETH-USD'].state());
+    // }, 5000);
+
+    // let coinbasepro = new ccxt.coinbasepro({
+    //     apiKey: coinbasepro_credential.apikey,
+    //     secret: coinbasepro_credential.base64secret,
+    //     password: coinbasepro_credential.passphrase
+    // });
     // console.log(coinbasepro.has)
     // console.log(coinbasepro.id, await coinbasepro.fetchOrders());
     // await coinbasepro.createOrder('ETH/GBP', 'limit', 'buy', 0.1, 50);
@@ -29,11 +49,11 @@ const fs = require('fs');
 
     // console.log(new ccxt.coinbasepro())
     // console.log(new ccxt.binance());
-    let binance = new ccxt.binance({
-        apiKey: binance_credential.apiKey,
-        secret: binance_credential.secretKey,
-    });
-    console.log(await binance.public_post_userdatastream());
+    // let binance = new ccxt.binance({
+    //     apiKey: binance_credential.apiKey,
+    //     secret: binance_credential.secretKey,
+    // });
+    // console.log(await binance.public_post_userdatastream());
     // console.log(await coinbasepro.fetchTicker('BTC/GBP'))
     // console.log(coinbasepro.requiredCredentials);
     // console.log(coinbasepro.id, await coinbasepro.fetchAccounts());
