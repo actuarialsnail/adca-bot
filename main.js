@@ -165,7 +165,7 @@ const main = async () => {
             const product_info = markets_info[product];
             const dec = product_info.precision.price;
             const product_max_budget = Math.floor(balance[exchange] / prouduct_scope.length * 10 ** dec) / (10 ** dec);
-            const product_budget = Math.min(product_max_budget, config.settings.exchanges[exchange].budget[product])
+            const product_budget = Math.min(product_max_budget, config.settings.exchanges[exchange].budget_abs[product])
             console.log(`${exchange} budget set for ${product}: ${product_budget}`);
             // const product_budget = 250; // for testing only
 
