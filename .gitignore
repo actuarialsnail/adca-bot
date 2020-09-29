@@ -107,3 +107,4 @@ dist
 config
 
 reports/*.*
+sandbox.js
