@@ -4,29 +4,184 @@ const ccxt = require('ccxt');
 // console.log(ccxt.exchanges);
 const coinbasepro_credential = config.credential.coinbase_dca;
 const binance_credential = config.credential.binance;
+const kraken_credential = config.credential.kraken_adca;
+const ws = require('ws');
 const fs = require('fs');
 const CoinbasePro = require('coinbase-pro');
 const taapi = require("taapi");
 
 (async function () {
 
-    const taapi_client = taapi.client(config.credential.taapi.secret);
-    const api_res = await taapi_client.getIndicator(
-        "bbands", "binance", "BTC/GBP", config.settings.indicators.bbands.timeframe,
-        {
-            optInTimePeriod: config.settings.indicators.bbands.period,
-            optInNbDevDn: config.settings.indicators.bbands.std,
+    // kraken ws template
+    // const exchange = new ccxt.kraken()
+    // console.log (exchange.requiredCredentials) // prints required credentials
+    let kraken = new ccxt.kraken({
+        apiKey: kraken_credential.api,
+        secret: kraken_credential.private_key,
+    });
+    // kraken.checkRequiredCredentials();
+    // console.log(kraken)
+    const kraken_listenkey = await kraken.privatePostGetWebSocketsToken();
+    console.log(kraken_listenkey);
+
+    const kraken_ws = new ws('wss://ws-auth.kraken.com');
+    let kraken_heartbeat_timeout;
+    kraken_ws.on('open', () => {
+        console.log('kraken websocket connected at:', new Date());
+        kraken_ws.send(JSON.stringify({
+            "event": "subscribe",
+            "subscription":
+            {
+                "name": "ownTrades",
+                "token": kraken_listenkey.result.token,
+            }
+        }));
+        kraken_ws.send(JSON.stringify({
+            "event": "subscribe",
+            "subscription":
+            {
+                "name": "openOrders",
+                "token": kraken_listenkey.result.token,
+            }
+        }));
+
+    })
+
+    kraken_ws.on('message', (msg_text) => {
+        let msg = JSON.parse(msg_text);
+
+        if (msg.event === 'heartbeat') {
+            // clears old timeout
+            clearTimeout(kraken_heartbeat_timeout);
+            // sets new timeout
+            kraken_heartbeat_timeout = setTimeout(() => {
+                console.log('ERROR', 'Websocket error', 'No heartbeat for 10s... reconnecting');
+                try { kraken_ws.disconnect() } catch (err) { kraken_ws.connect(); };
+            }, 10 * 1000);
+        } else {
+            if (Array.isArray(msg)) {
+                const channel_name = msg.slice(-1)[0];
+                console.log(`${channel_name} publication received`)
+                fs.appendFile('./logs/kraken_test.json', JSON.stringify(msg) + '\n', (err) => {
+                    if (err) { console.log('error writing log files', err) }
+                })
+            }
+            // console.log(JSON.stringify(msg));
         }
-    );
-    console.log(api_res.valueLowerBand);
+    })
+
+    kraken_ws.on('error', err => {
+        /* handle error */
+        console.log('error', err);
+    });
+
+    kraken_ws.on('close', () => {
+        console.log('ERROR', 'Websocket Error', `websocket closed. Attempting to re-connect.`);
+        setTimeout(() => {
+            kraken_ws.connect();
+        }, 3000)
+    });
+
+    // const taapi_client = taapi.client(config.credential.taapi.secret);
+    // const api_res = await taapi_client.getIndicator(
+    //     "bbands", "binance", "BTC/GBP", config.settings.indicators.bbands.timeframe,
+    //     {
+    //         optInTimePeriod: config.settings.indicators.bbands.period,
+    //         optInNbDevDn: config.settings.indicators.bbands.std,
+    //     }
+    // );
+    // console.log(api_res.valueLowerBand);
     // console.log(await client.getIndicator("bbands", "binance", "BTC/GBP", "1d", { optInTimePeriod: 20 }).valueLowerBand);
     // console.log(await client.getIndicator("bbands", "binance", "BTC/GBP", "1d", { optInTimePeriod: 5 }).valueLowerBand);
 
     // const orderbook = new CoinbasePro.Orderbook();
     // const orderbookSync = new CoinbasePro.OrderbookSync(['BTC-USD', 'ETH-USD']);
+    // let counter = 0;
     // setInterval(() => {
-    //     console.log(orderbookSync.books['ETH-USD'].state());
-    // }, 5000);
+    //     fs.appendFile('./logs/orderbooks/test.json', JSON.stringify(orderbookSync.books['ETH-USD'].state()) + '\n', (err) => {
+    //         if (err) { console.log('error writing log files', err) }
+    //     })
+    //     console.log(counter++);
+    // }, 1000);
+
+    // const websocket = new CoinbasePro.WebsocketClient(['BTC-USD'], 'wss://ws-feed.pro.coinbase.com', null, { channels: ['ticker', 'level2'] });
+    // let tmstmp;
+    // let heartbeat_timeout;
+
+    // websocket.on('open', (data) => {
+    //     tmstmp = Date.now();
+    //     console.log(data);
+    //     console.log(`coinbase websocket connected at ${tmstmp}, id: ${JSON.stringify(websocket)}`)
+    // })
+
+    // websocket.on('message', data => {
+    //     /* work with data */
+    //     // console.log(data);
+    //     if (data.type === 'heartbeat') {
+    //         // clears old timeout
+    //         clearTimeout(heartbeat_timeout);
+    //         // sets new timeout
+    //         heartbeat_timeout = setTimeout(() => {
+    //             console.log('ERROR', 'Websocket error', 'No heartbeat for 10s... reconnecting');
+    //             try { websocket.disconnect() } catch (err) { };
+    //             websocket.connect();
+    //         }, 10 * 1000);
+    //     }
+
+    //     if (data.type === 'subscriptions') {
+    //         console.log('subscriptions:', data);
+    //     }
+
+    //     if (data.type === 'snapshot') {
+
+    //     }
+
+    //     if (data.type === 'l2update' || data.type === 'ticker' || data.type === 'snapshot') {
+    //         fs.appendFile('./logs/orderbooks/' + [data.product_id, data.type, tmstmp].join('_') + '.json', JSON.stringify(data) + '\n', (err) => {
+    //             if (err) { console.log('error writing log files', err) }
+    //         })
+    //     }
+    // });
+    // websocket.on('error', err => {
+    //     /* handle error */
+    // });
+    // websocket.on('close', () => {
+    //     console.log('ERROR', 'Websocket Error', `websocket closed. Attempting to re-connect. id: ${websocket.id}`);
+
+    //     // try to re-connect the first time...
+    //     setTimeout(() => {
+    //         websocket.connect();
+    //     }, 3000)
+    //     // let count = 1;
+    //     // // attempt to re-connect every 30 seconds.
+    //     // // TODO: maybe use an exponential backoff instead
+    //     // const interval = setInterval(() => {
+    //     //     if (!websocket.socket) {
+    //     //         count++;
+
+    //     //         // send me a email if it keeps failing every 30/2 = 15 minutes
+    //     //         if (count % 30 === 0) {
+    //     //             const time_since = 30 * count;
+    //     //             console.log('CRIT', 'Websocket Error', `Attempting to re-connect for ${count} times. It has been ${time_since} seconds since we lost connection.`);
+    //     //         }
+    //     //         websocket.connect();
+    //     //     }
+    //     //     else {
+    //     //         clearInterval(interval);
+    //     //     }
+    //     // }, 30000);
+    // });
+
+    // let count = 0;
+    // setInterval(() => {
+    //     console.log(count++);
+    // }, 1000)
+
+    // setInterval(() => {
+    //     console.log('Initiating scheduled reconnection');
+    //     websocket.disconnect();
+    // }, 10 * 1000);
+
 
     // let coinbasepro = new ccxt.coinbasepro({
     //     apiKey: coinbasepro_credential.apikey,
