@@ -5,6 +5,7 @@ const config = require('./config/config.js');
 const ccxt = require('ccxt');
 const coinbasepro_credential = config.credential.coinbase_dca;
 const binance_credential = config.credential.binance;
+const kraken_credential = config.credential.kraken_adca;
 const fs = require('fs');
 const CoinbasePro = require('coinbase-pro');
 const taapi = require("taapi");
@@ -20,10 +21,15 @@ let binance = new ccxt.binance({
     apiKey: binance_credential.apiKey,
     secret: binance_credential.secretKey,
 });
+let kraken = new ccxt.kraken({
+    apiKey: kraken_credential.api,
+    secret: kraken_credential.private_key,
+});
 
 let exchange_scope = {
     coinbasepro,
     binance,
+    kraken,
 };
 
 const { period_h, bin_size, price_lowerb_pc, price_upperb_pc, trade_mode, prouduct_scope, quote_currency } = config.settings;
@@ -121,8 +127,86 @@ const binance_ws = () => {
     setInterval(init_ws, 60 * 60 * 1000 - 1); // as per binance API, user datastream resets every hour
 }
 
+const kraken_ws = async () => {
+    const kraken_listenkey = await kraken.privatePostGetWebSocketsToken();
+    console.log(kraken_listenkey);
+    let msg_init = true;
+
+    const ws = new WebSocket('wss://ws-auth.kraken.com');
+    let kraken_heartbeat_timeout;
+    ws.on('open', () => {
+        console.log('kraken websocket connected at:', new Date());
+        ws.send(JSON.stringify({
+            "event": "subscribe",
+            "subscription":
+            {
+                "name": "ownTrades",
+                "token": kraken_listenkey.result.token,
+            }
+        }));
+        ws.send(JSON.stringify({
+            "event": "subscribe",
+            "subscription":
+            {
+                "name": "openOrders",
+                "token": kraken_listenkey.result.token,
+            }
+        }));
+
+    })
+
+    ws.on('message', (msg_text) => {
+        let msg = JSON.parse(msg_text);
+
+        if (msg.event === 'heartbeat') {
+            // clears old timeout
+            clearTimeout(kraken_heartbeat_timeout);
+            // sets new timeout
+            kraken_heartbeat_timeout = setTimeout(() => {
+                console.log('ERROR', 'Websocket error', 'No heartbeat for 10s... reconnecting');
+                try { ws.terminate() } catch (err) { kraken_ws(); };
+            }, 10 * 1000);
+        } else {
+            msg_init = false;
+            if (Array.isArray(msg) && !msg_init) {
+                const channel_name = msg.slice(-1)[0];
+                console.log(`${channel_name} publication received`)
+                if (channel_name === 'ownTrades') {
+                    let trades = msg[0];
+                    trades.forEach(trade => {
+                        if (trade.type === 'buy' && trade.ordertype === 'limit') {
+                            const dec = 2;
+                            const price = Math.floor(Number(trade.price) * (1 + price_upperb_pc / 100) * 10 ** dec) / 10 ** dec;
+                            // submit sell limit
+                            const symbol = trade.pair;
+                            kraken.createOrder(symbol, 'limit', 'sell', Number(msg.vol), price);
+                        }
+                    });
+                }
+                fs.appendFile('./logs/kraken_test.json', JSON.stringify(msg) + '\n', (err) => {
+                    if (err) { console.log('error writing log files', err) }
+                })
+            }
+            // console.log(JSON.stringify(msg));
+        }
+    })
+
+    ws.on('error', err => {
+        /* handle error */
+        console.log('error', err);
+    });
+
+    ws.on('close', () => {
+        console.log('ERROR', 'Websocket Error', `websocket closed. Attempting to re-connect.`);
+        setTimeout(() => {
+            kraken_ws();
+        }, 3000)
+    });
+}
+
 coinbasepro_ws();
 binance_ws()
+kraken_ws();
 
 const main = async () => {
 
@@ -151,7 +235,12 @@ const main = async () => {
     // determine budget
     let balance = {}
     for (const exchange in exchange_scope) {
-        balance[exchange] = (await exchange_scope[exchange].fetchBalance())[quote_currency].free;
+        if (exchange === 'kraken') {
+            // .free attribute is not available from kraken API but ok to use total given buy limits are already cleared
+            balance[exchange] = (await exchange_scope[exchange].fetchBalance())[quote_currency].total;
+        } else {
+            balance[exchange] = (await exchange_scope[exchange].fetchBalance())[quote_currency].free;
+        }
         console.log(`${exchange} total budget ${balance[exchange]}`);
     }
 
