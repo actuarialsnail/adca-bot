@@ -5,7 +5,7 @@ const ccxt = require('ccxt');
 const coinbasepro_credential = config.credential.coinbase_dca;
 const binance_credential = config.credential.binance;
 const kraken_credential = config.credential.kraken_adca;
-const ws = require('ws');
+const WebSocket = require('ws');
 const fs = require('fs');
 const CoinbasePro = require('coinbase-pro');
 const taapi = require("taapi");
@@ -21,66 +21,83 @@ const taapi = require("taapi");
     });
     // kraken.checkRequiredCredentials();
     // console.log(kraken)
-    const kraken_listenkey = await kraken.privatePostGetWebSocketsToken();
-    console.log(kraken_listenkey);
+    const kraken_ws = async () => {
+        const kraken_listenkey = await kraken.privatePostGetWebSocketsToken();
+        console.log(kraken_listenkey);
+        let msg_init = true;
 
-    const kraken_ws = new ws('wss://ws-auth.kraken.com');
-    let kraken_heartbeat_timeout;
-    kraken_ws.on('open', () => {
-        console.log('kraken websocket connected at:', new Date());
-        kraken_ws.send(JSON.stringify({
-            "event": "subscribe",
-            "subscription":
-            {
-                "name": "ownTrades",
-                "token": kraken_listenkey.result.token,
+        const ws = new WebSocket('wss://ws-auth.kraken.com');
+        let kraken_heartbeat_timeout;
+        ws.on('open', () => {
+            console.log('kraken websocket connected at:', new Date());
+            ws.send(JSON.stringify({
+                "event": "subscribe",
+                "subscription":
+                {
+                    "name": "ownTrades",
+                    "token": kraken_listenkey.result.token,
+                }
+            }));
+            ws.send(JSON.stringify({
+                "event": "subscribe",
+                "subscription":
+                {
+                    "name": "openOrders",
+                    "token": kraken_listenkey.result.token,
+                }
+            }));
+
+        })
+
+        ws.on('message', (msg_text) => {
+            let msg = JSON.parse(msg_text);
+
+            if (msg.event === 'heartbeat') {
+                // clears old timeout
+                clearTimeout(kraken_heartbeat_timeout);
+                // sets new timeout
+                kraken_heartbeat_timeout = setTimeout(() => {
+                    console.log('ERROR', 'Websocket error', 'No heartbeat for 10s... reconnecting');
+                    try { ws.terminate() } catch (err) { kraken_ws(); };
+                }, 10 * 1000);
+            } else {
+                msg_init = false;
+                if (Array.isArray(msg) && !msg_init) {
+                    const channel_name = msg.slice(-1)[0];
+                    console.log(`${channel_name} publication received`)
+                    if (channel_name === 'ownTrades') {
+                        let trades = msg[0];
+                        trades.forEach(trade => {
+                            if (trade.type === 'buy' && trade.ordertype === 'limit') {
+                                const dec = 2;
+                                const price = Math.floor(Number(trade.price) * (1 + price_upperb_pc / 100) * 10 ** dec) / 10 ** dec;
+                                // submit sell limit
+                                const symbol = trade.pair;
+                                kraken.createOrder(symbol, 'limit', 'sell', Number(msg.vol), price);
+                            }
+                        });
+                    }
+                    fs.appendFile('./logs/kraken_test.json', JSON.stringify(msg) + '\n', (err) => {
+                        if (err) { console.log('error writing log files', err) }
+                    })
+                }
+                // console.log(JSON.stringify(msg));
             }
-        }));
-        kraken_ws.send(JSON.stringify({
-            "event": "subscribe",
-            "subscription":
-            {
-                "name": "openOrders",
-                "token": kraken_listenkey.result.token,
-            }
-        }));
+        })
 
-    })
+        ws.on('error', err => {
+            /* handle error */
+            console.log('error', err);
+        });
 
-    kraken_ws.on('message', (msg_text) => {
-        let msg = JSON.parse(msg_text);
-
-        if (msg.event === 'heartbeat') {
-            // clears old timeout
-            clearTimeout(kraken_heartbeat_timeout);
-            // sets new timeout
-            kraken_heartbeat_timeout = setTimeout(() => {
-                console.log('ERROR', 'Websocket error', 'No heartbeat for 10s... reconnecting');
-                try { kraken_ws.disconnect() } catch (err) { kraken_ws.connect(); };
-            }, 10 * 1000);
-        } else {
-            if (Array.isArray(msg)) {
-                const channel_name = msg.slice(-1)[0];
-                console.log(`${channel_name} publication received`)
-                fs.appendFile('./logs/kraken_test.json', JSON.stringify(msg) + '\n', (err) => {
-                    if (err) { console.log('error writing log files', err) }
-                })
-            }
-            // console.log(JSON.stringify(msg));
-        }
-    })
-
-    kraken_ws.on('error', err => {
-        /* handle error */
-        console.log('error', err);
-    });
-
-    kraken_ws.on('close', () => {
-        console.log('ERROR', 'Websocket Error', `websocket closed. Attempting to re-connect.`);
-        setTimeout(() => {
-            kraken_ws.connect();
-        }, 3000)
-    });
+        ws.on('close', () => {
+            console.log('ERROR', 'Websocket Error', `websocket closed. Attempting to re-connect.`);
+            setTimeout(() => {
+                kraken_ws();
+            }, 3000)
+        });
+    }
+    kraken_ws();
 
     // const taapi_client = taapi.client(config.credential.taapi.secret);
     // const api_res = await taapi_client.getIndicator(
