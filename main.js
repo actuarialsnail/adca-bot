@@ -27,8 +27,8 @@ let kraken = new ccxt.kraken({
 });
 
 let exchange_scope = {
-    coinbasepro,
-    binance,
+    // coinbasepro,
+    // binance,
     kraken,
 };
 
@@ -129,7 +129,7 @@ const binance_ws = () => {
 
 const kraken_ws = async () => {
     const kraken_listenkey = await kraken.privatePostGetWebSocketsToken();
-    console.log(kraken_listenkey);
+    // console.log(kraken_listenkey);
     let msg_init = true;
 
     const ws = new WebSocket('wss://ws-auth.kraken.com');
@@ -167,25 +167,33 @@ const kraken_ws = async () => {
                 try { ws.terminate() } catch (err) { kraken_ws(); };
             }, 10 * 1000);
         } else {
-            msg_init = false;
-            if (Array.isArray(msg) && !msg_init) {
+            if (Array.isArray(msg)) {
                 const channel_name = msg.slice(-1)[0];
-                console.log(`${channel_name} publication received`)
-                if (channel_name === 'ownTrades') {
-                    let trades = msg[0];
-                    trades.forEach(trade => {
-                        if (trade.type === 'buy' && trade.ordertype === 'limit') {
-                            const dec = 2;
-                            const price = Math.floor(Number(trade.price) * (1 + price_upperb_pc / 100) * 10 ** dec) / 10 ** dec;
-                            // submit sell limit
-                            const symbol = trade.pair;
-                            kraken.createOrder(symbol, 'limit', 'sell', Number(msg.vol), price);
+                console.log(channel_name, 'publication received at', new Date());
+                if (channel_name === 'ownTrades' && !msg_init) {
+                    let tradesArr = msg[0];
+                    tradesArr.forEach(tradeObj => {
+                        for (const [, trade] of Object.entries(tradeObj)) {
+                            if (trade.type === 'buy' && trade.ordertype === 'limit') {
+                                console.log('kraken limit buy order trade detected');
+                                const dec = 2;
+                                const price = Math.floor(Number(trade.price) * (1 + price_upperb_pc / 100) * 10 ** dec) / 10 ** dec;
+                                // submit sell limit
+                                const symbol = trade.pair;
+                                const size = Number(trade.vol);
+                                console.log(trade);
+                                console.log(`placing limit sell symbol: ${symbol} size: ${size} price: ${price}`);
+                                kraken.createOrder(symbol, 'limit', 'sell', size, price);
+                            }
                         }
                     });
+                } else if (channel_name === 'ownTrades') {
+                    msg_init = false
                 }
-                fs.appendFile('./logs/kraken_test.json', JSON.stringify(msg) + '\n', (err) => {
-                    if (err) { console.log('error writing log files', err) }
-                })
+                // fs.appendFile('./logs/kraken_test.json', JSON.stringify(msg) + '\n', (err) => {
+                //     if (err) { console.log('error writing log files', err) }
+                // })
+
             }
             // console.log(JSON.stringify(msg));
         }
@@ -204,9 +212,19 @@ const kraken_ws = async () => {
     });
 }
 
-coinbasepro_ws();
-binance_ws()
-kraken_ws();
+for (const exchange in exchange_scope) {
+
+    switch (exchange) {
+        case "coinbasepro": coinbasepro_ws(); break;
+        case "binance": binance_ws(); break;
+        case "kraken":
+            kraken_ws();
+            break;
+        default:
+            console.log(`unrecognised exchange ${exchange}`);
+            break;
+    }
+}
 
 const main = async () => {
 
