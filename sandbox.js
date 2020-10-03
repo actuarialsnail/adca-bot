@@ -14,7 +14,7 @@ const taapi = require("taapi");
 
     // kraken ws template
     // const exchange = new ccxt.kraken()
-    // console.log (exchange.requiredCredentials) // prints required credentials
+    // console.log(exchange.requiredCredentials) // prints required credentials
     // let kraken = new ccxt.kraken({
     //     apiKey: kraken_credential.api,
     //     secret: kraken_credential.private_key,
@@ -100,6 +100,15 @@ const taapi = require("taapi");
     // kraken_ws();
     // const balance = await kraken.fetchBalance()
     // console.log(balance['GBP'].total);
+    // const ledger = await kraken.privatePostLedgers({ type: 'deposit', asset: 'ZGBP' });
+    // let deposit = 0
+    // for (const d in ledger.result.ledger) {
+
+    //     console.log(ledger.result.ledger[d]);
+    //     deposit += Number(ledger.result.ledger[d].amount);
+    // }
+    // // console.log(JSON.stringify(ledger.result.ledger, null, 4));
+    // console.log(deposit);
 
     // const taapi_client = taapi.client(config.credential.taapi.secret);
     // const api_res = await taapi_client.getIndicator(

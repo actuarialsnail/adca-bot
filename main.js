@@ -184,16 +184,15 @@ const kraken_ws = async () => {
                                 console.log(trade);
                                 console.log(`placing limit sell symbol: ${symbol} size: ${size} price: ${price}`);
                                 kraken.createOrder(symbol, 'limit', 'sell', size, price);
+                                fs.appendFile('./logs/kraken_tradelog.json', JSON.stringify({ trade, size, price }) + '\n', (err) => {
+                                    if (err) { console.log('error writing log files', err) }
+                                })
                             }
                         }
                     });
                 } else if (channel_name === 'ownTrades') {
                     msg_init = false
                 }
-                // fs.appendFile('./logs/kraken_test.json', JSON.stringify(msg) + '\n', (err) => {
-                //     if (err) { console.log('error writing log files', err) }
-                // })
-
             }
             // console.log(JSON.stringify(msg));
         }
