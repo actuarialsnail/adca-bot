@@ -214,10 +214,14 @@ const kraken_ws = async () => {
 for (const exchange in exchange_scope) {
 
     switch (exchange) {
-        case "coinbasepro": coinbasepro_ws(); break;
-        case "binance": binance_ws(); break;
+        case "coinbasepro":
+            // coinbasepro_ws();
+            break;
+        case "binance":
+            // binance_ws();
+            break;
         case "kraken":
-            kraken_ws();
+            // kraken_ws();
             break;
         default:
             console.log(`unrecognised exchange ${exchange}`);
@@ -282,7 +286,7 @@ const main = async () => {
             const start = product_price.bid;
             const end = Math.min(start * (1 - price_lowerb_pc / 100), bb_lower[product]);
             console.log(`start price: ${start} end price: ${end}, lower of ${price_lowerb_pc}% and ${bb_lower[product]}`);
-            orders[product] = create_buy_limit_param_array(start, end, bin_size, product_info, product_budget);
+            orders[product] = create_buy_limit_param_array(start, end, bin_size, product_info, product_budget, 'bull');
             // console.log(orders[product]);
         }
 
@@ -323,7 +327,7 @@ const create_cancel_param_obj = (open_orders) => {
 }
 
 // order param array builder
-const create_buy_limit_param_array = (start, end, bin_size, info, budget) => {
+const create_buy_limit_param_array = (start, end, bin_size, info, budget, trend) => {
 
     let order_param_array = [];
 
@@ -333,19 +337,38 @@ const create_buy_limit_param_array = (start, end, bin_size, info, budget) => {
     const dec_size = info.precision.amount;
     const dec_price = info.precision.price;
 
-    // for linear weighted sizes, use the arithmetic progression Sn = n(a1+an)/2
-    const step_size = Math.floor(budget / (bin_size * (start + end) / 2 * (1 + info.taker)) * 10 ** dec_size) / 10 ** dec_size;
+    let step_size = [];
+    let step_price = [];
 
-    // validation, execute if trade parameters are within limits
-    const lowest_quote = step_size * end;
-    if (step_size < info.limits.amount.min) {
-        console.log(`base size ${step_size} is below the minimum ${info.limits.amount.min}`)
-    } else if (lowest_quote < info.limits.cost.min) {
-        console.log(`quote size ${lowest_quote} (${step_size} * ${end}) is below the minimum ${info.limits.cost.min}`)
-    } else {
-        for (let i = 1; i <= bin_size; i++) {
-            const step_price = Math.floor((start - delta_price * i) * 10 ** dec_price) / 10 ** dec_price;
-            order_param_array.push({ symbol: info.symbol, price: step_price, size: step_size, side: 'buy', type: 'limit' })
+    for (let i = 1; i <= bin_size; i++) {
+
+        step_price[i] = Math.floor((start - delta_price * i) * 10 ** dec_price) / 10 ** dec_price;
+        switch (trend) {
+            case 'hyperbolic':
+                // squared increasing weights
+                step_size[i] = Math.floor(budget * i ** 2 / (bin_size * (bin_size + 1) * (2 * bin_size + 1) / 6) / (1 + info.taker) / step_price[i] * 10 ** dec_size) / 10 ** dec_size;
+                break;
+            case 'bull':
+                step_size[i] = Math.floor(budget * i / bin_size / ((bin_size + 1) / 2) / (1 + info.taker) / step_price[i] * 10 ** dec_size) / 10 ** dec_size;
+                break;
+            case 'range', 'bear':
+                // flat or no increasing weights - use the arithmetic progression Sn = n(a1+an)/2
+                step_size[i] = Math.floor(budget / (bin_size * (start + end) / 2 * (1 + info.taker)) * 10 ** dec_size) / 10 ** dec_size;
+                break;
+            default:
+                // flat or no increasing weights
+                step_size[i] = Math.floor(budget / (bin_size * (start + end) / 2 * (1 + info.taker)) * 10 ** dec_size) / 10 ** dec_size;
+                break;
+        }
+
+        // validation, execute if trade parameters are within limits       
+        const quote = step_size[i] * step_price[i];
+        if (step_size[i] < info.limits.amount.min) {
+            console.log(`base size ${step_size[i]} is below the minimum ${info.limits.amount.min} for ${step_price[i]} limit order`)
+        } else if (quote < info.limits.cost.min) {
+            console.log(`quote size ${quote} (${step_size[i]} * ${step_price[i]}) is below the minimum ${info.limits.cost.min}`)
+        } else {
+            order_param_array.push({ symbol: info.symbol, price: step_price[i], size: step_size[i], side: 'buy', type: 'limit' })
         }
     }
 
@@ -354,7 +377,7 @@ const create_buy_limit_param_array = (start, end, bin_size, info, budget) => {
 }
 
 const batch_request = async (exchange, req_obj) => {
-    console.log('request object', req_obj);
+    // console.log('request object', req_obj);
     for (const product in req_obj) {
         for (const req of req_obj[product]) {
             switch (req.type) {
