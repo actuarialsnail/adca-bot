@@ -433,36 +433,36 @@ const main_timer = setInterval(async () => {
     }
 
     // scheduled daily aoc reporting process
-    if (hour === aoc_hour && minute === aoc_minute) {
-        if (!aoc_done) {
-            aoc_done = true;
-            console.log('perform AoC report');
-            // record balance file
-            const balance = await coinbasepro.fetchBalance();
-            fs.writeFileSync('./logs/balance_' + today_date + '.json', JSON.stringify(balance));
-            const ticker = {};
-            for (const product of prouduct_scope) {
-                ticker[product] = await coinbasepro.fetchTicker(product);
-            }
-            fs.writeFileSync('./logs/ticker_' + today_date + '.json', JSON.stringify(ticker));
-            console.log('files logged');
-            const data_obj = await aoc(yesterday_date, today_date);
-            generate_html(data_obj);
-        }
-    } else {
-        aoc_done = false;
-    }
+    // if (hour === aoc_hour && minute === aoc_minute) {
+    //     if (!aoc_done) {
+    //         aoc_done = true;
+    //         console.log('perform AoC report');
+    //         // record balance file
+    //         const balance = await coinbasepro.fetchBalance();
+    //         fs.writeFileSync('./logs/balance_' + today_date + '.json', JSON.stringify(balance));
+    //         const ticker = {};
+    //         for (const product of prouduct_scope) {
+    //             ticker[product] = await coinbasepro.fetchTicker(product);
+    //         }
+    //         fs.writeFileSync('./logs/ticker_' + today_date + '.json', JSON.stringify(ticker));
+    //         console.log('files logged');
+    //         const data_obj = await aoc(yesterday_date, today_date);
+    //         generate_html(data_obj);
+    //     }
+    // } else {
+    //     aoc_done = false;
+    // }
 
     // scheduled daily email notification
-    if (hour === email_hour && minute === email_minute) {
-        if (!email_sent) {
-            email_sent = true;
-            console.log('email AoC report');
-            send_mail('aoc', 'Attached.', 'report_' + today_date + '.html');
-        }
-    } else {
-        email_sent = false;
-    }
+    // if (hour === email_hour && minute === email_minute) {
+    //     if (!email_sent) {
+    //         email_sent = true;
+    //         console.log('email AoC report');
+    //         send_mail('aoc', 'Attached.', 'report_' + today_date + '.html');
+    //     }
+    // } else {
+    //     email_sent = false;
+    // }
 }, 1000)
 
 const generate_html = (data_obj) => {
