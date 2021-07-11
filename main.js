@@ -346,18 +346,23 @@ const create_buy_limit_param_array = (start, end, bin_size, info, budget, trend)
         switch (trend) {
             case 'hyperbolic':
                 // squared increasing weights
-                step_size[i] = Math.floor(budget * i ** 2 / (bin_size * (bin_size + 1) * (2 * bin_size + 1) / 6) / (1 + info.taker) / step_price[i] * 10 ** dec_size) / 10 ** dec_size;
+                step_size[i] = Math.floor(budget * i ** 2 / (bin_size * (bin_size + 1) * (2 * bin_size + 1) / 6) / (1 + info.maker) / step_price[i] * 10 ** dec_size) / 10 ** dec_size;
                 break;
             case 'bull':
-                step_size[i] = Math.floor(budget * i / bin_size / ((bin_size + 1) / 2) / (1 + info.taker) / step_price[i] * 10 ** dec_size) / 10 ** dec_size;
+                // linearly increasing weights
+                step_size[i] = Math.floor(budget * i / bin_size / ((bin_size + 1) / 2) / (1 + info.maker) / step_price[i] * 10 ** dec_size) / 10 ** dec_size;
                 break;
-            case 'range', 'bear':
+            case 'range':
                 // flat or no increasing weights - use the arithmetic progression Sn = n(a1+an)/2
-                step_size[i] = Math.floor(budget / (bin_size * (start + end) / 2 * (1 + info.taker)) * 10 ** dec_size) / 10 ** dec_size;
+                step_size[i] = Math.floor(budget / (bin_size * (start + end) / 2 * (1 + info.maker)) * 10 ** dec_size) / 10 ** dec_size;
+                break;
+            case 'bear':
+                // inverse-linearly increasing weights
+                step_size[i] = Math.floor(budget * (bin_size - i + 1) / bin_size / ((bin_size + 1) / 2) / (1 + info.maker) / step_price[i] * 10 ** dec_size) / 10 ** dec_size;
                 break;
             default:
                 // flat or no increasing weights
-                step_size[i] = Math.floor(budget / (bin_size * (start + end) / 2 * (1 + info.taker)) * 10 ** dec_size) / 10 ** dec_size;
+                step_size[i] = Math.floor(budget / (bin_size * (start + end) / 2 * (1 + info.maker)) * 10 ** dec_size) / 10 ** dec_size;
                 break;
         }
 
