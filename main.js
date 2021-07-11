@@ -232,16 +232,25 @@ for (const exchange in exchange_scope) {
 const main = async () => {
 
     const bb_lower = {};
+    const rsi = {};
     // pre-load periodic technical indicators
     for (const product of prouduct_scope) {
-        const api_res = await taapi_client.getIndicator(
+        const api_res_bb = await taapi_client.getIndicator(
             "bbands", "binance", product, config.settings.indicators.bbands.timeframe,
             {
                 optInTimePeriod: config.settings.indicators.bbands.period,
                 optInNbDevDn: config.settings.indicators.bbands.std,
             }
         );
-        bb_lower[product] = api_res.valueLowerBand;
+        const api_res_rsi = await taapi_client.getIndicator(
+            "rsi", "binance", product, config.settings.indicators.rsi.timeframe,
+            {
+                optInTimePeriod: config.settings.indicators.rsi.period,
+            }
+        );
+
+        bb_lower[product] = api_res_bb.valueLowerBand;
+        rsi[product] = api_res_rsi.value;
     }
 
     // check through all open orders and filter out buy limit orders... to do: to also check if product_scope.includes('info.proudct_id')
@@ -286,7 +295,9 @@ const main = async () => {
             const start = product_price.bid;
             const end = Math.min(start * (1 - price_lowerb_pc / 100), bb_lower[product]);
             console.log(`start price: ${start} end price: ${end}, lower of ${price_lowerb_pc}% and ${bb_lower[product]}`);
-            orders[product] = create_buy_limit_param_array(start, end, bin_size, product_info, product_budget, 'bull');
+            const trend_type = determine_trend_type(rsi);
+            console.log(`trend type determined: ${trend_type}`);
+            orders[product] = create_buy_limit_param_array(start, end, bin_size, product_info, product_budget, trend_type);
             // console.log(orders[product]);
         }
 
@@ -379,6 +390,21 @@ const create_buy_limit_param_array = (start, end, bin_size, info, budget, trend)
 
     // console.log(order_param_array);
     return order_param_array;
+}
+
+// determination of past trend
+const determine_trend_type = (rsi_ind) => {
+    let trend_type = "";
+    if (rsi_ind > 80) {
+        trend_type = 'hyperbolic'
+    } else if (rsi_ind > 60) {
+        trend_type = 'bull'
+    } else if (rsi_ind > 30) {
+        trend_type = 'range'
+    } else {
+        trend_type = 'bear'
+    }
+    return trend_type;
 }
 
 const batch_request = async (exchange, req_obj) => {
