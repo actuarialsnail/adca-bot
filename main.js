@@ -264,6 +264,7 @@ const main = async () => {
         );
         rsi[product] = api_res_rsi.value;
         console.log(`rsi for ${product} is ${rsi[product]}`);
+        // console.log(determine_trend_type(rsi[product]));
         await wait(60 * 1000); // prevent E429: API request limit
     }
 
@@ -309,7 +310,7 @@ const main = async () => {
             const start = product_price.bid;
             const end = Math.min(start * (1 - price_lowerb_pc / 100), bb_lower[product]);
             console.log(`start price: ${start} end price: ${end}, lower of ${price_lowerb_pc}% and ${bb_lower[product]}`);
-            const trend_type = determine_trend_type(rsi);
+            const trend_type = determine_trend_type(rsi[product]);
             console.log(`trend type determined: ${trend_type}`);
             orders[product] = create_buy_limit_param_array(start, end, bin_size, product_info, product_budget, trend_type);
             // console.log(orders[product]);
