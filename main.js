@@ -12,6 +12,16 @@ const taapi = require("taapi");
 
 const taapi_client = taapi.client(config.credential.taapi.secret);
 
+let sandbox = false;
+const myArgs = process.argv.slice(2);
+switch (myArgs[0]) {
+    case 'test':
+        sandbox = true;
+        console.log('Sandbox mode is on');
+        break;
+    default:
+}
+
 let coinbasepro = new ccxt.coinbasepro({
     apiKey: coinbasepro_credential.apikey,
     secret: coinbasepro_credential.base64secret,
@@ -233,6 +243,7 @@ const main = async () => {
 
     const bb_lower = {};
     const rsi = {};
+
     // pre-load periodic technical indicators
     for (const product of prouduct_scope) {
         const api_res_bb = await taapi_client.getIndicator(
@@ -242,15 +253,18 @@ const main = async () => {
                 optInNbDevDn: config.settings.indicators.bbands.std,
             }
         );
+        bb_lower[product] = api_res_bb.valueLowerBand;
+        console.log(`bb_lower for ${product} is ${bb_lower[product]}`);
+        await wait(60 * 1000); // prevent E429: API request limit
         const api_res_rsi = await taapi_client.getIndicator(
             "rsi", "binance", product, config.settings.indicators.rsi.timeframe,
             {
                 optInTimePeriod: config.settings.indicators.rsi.period,
             }
         );
-
-        bb_lower[product] = api_res_bb.valueLowerBand;
         rsi[product] = api_res_rsi.value;
+        console.log(`rsi for ${product} is ${rsi[product]}`);
+        await wait(60 * 1000); // prevent E429: API request limit
     }
 
     // check through all open orders and filter out buy limit orders... to do: to also check if product_scope.includes('info.proudct_id')
@@ -311,14 +325,9 @@ const main = async () => {
 
 const reset_buy_limit_orders = async (exchange, open_orders, trade_mode) => {
 
-    if (trade_mode === 'buy_only' && exchange_scope[exchange].has['cancelAllOrders']) {
-        // use cancell all functionality if exist
-        console.log(`sending request to ${exchange}: cancell all ${open_orders.length} orders`)
-        // await exchange_scope[exchange].cancelAllOrders(); //might not work if some of the orders are not in product_scope, they should not be touched if so
-    } else {
-        const cancel_obj = create_cancel_param_obj(open_orders);
-        await batch_request(exchange, cancel_obj);
-    }
+    const cancel_obj = create_cancel_param_obj(open_orders);
+    await batch_request(exchange, cancel_obj);
+
 }
 
 const create_cancel_param_obj = (open_orders) => {
@@ -415,13 +424,21 @@ const batch_request = async (exchange, req_obj) => {
                 case 'limit':
                     const { symbol, type, side, size, price } = req;
                     console.log(`sending limit order request to ${exchange}`, req);
-                    await exchange_scope[exchange].createOrder(symbol, type, side, size, price);
-                    await wait(500);
+                    if (!sandbox) {
+                        await exchange_scope[exchange].createOrder(symbol, type, side, size, price);
+                        await wait(500);
+                    } else {
+                        console.log('Sandbox mode is on.');
+                    }
                     break;
                 case 'cancel':
                     console.log(`sending cancel order request to ${exchange}`, req);
-                    await exchange_scope[exchange].cancelOrder(req.id, req.symbol);
-                    await wait(500);
+                    if (!sandbox) {
+                        await exchange_scope[exchange].cancelOrder(req.id, req.symbol);
+                        await wait(500);
+                    } else {
+                        console.log('Sandbox mode is on.');
+                    }
                     break;
                 default:
                     console.log('unkown type detected, request not executed');
