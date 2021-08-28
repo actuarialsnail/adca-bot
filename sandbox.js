@@ -9,7 +9,15 @@ const WebSocket = require('ws');
 const fs = require('fs');
 const CoinbasePro = require('coinbase-pro');
 const taapi = require("taapi");
-
+let sandbox = false;
+const myArgs = process.argv.slice(2);
+switch (myArgs[0]) {
+    case 'test':
+        sandbox = true;
+        console.log('Sandbox mode is on');
+        break;
+    default:
+}
 (async function () {
 
     // kraken ws template

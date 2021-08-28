@@ -9,9 +9,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "ccxt": "^1.33.7",
+    "ccxt": "^1.52.98",
     "coinbase-pro": "^0.9.0",
-    "nodemailer": "^6.4.11",
-    "taapi": "^1.2.7"
+    "nodemailer": "^6.6.2",
+    "taapi": "^1.3.0"
   }
 }
