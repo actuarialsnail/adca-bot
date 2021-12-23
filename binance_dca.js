@@ -41,11 +41,16 @@ const dca = async () => {
 }
 
 const dip = async () => {
+    // perform cancellation to all orders first to fully utilise budget
     for (const product of prouduct_scope) {
         let open_orders = await binance.fetchOpenOrders(product);
         console.log(`${open_orders.length} open orders found for ${product}`);
         open_orders.length > 0 ? await cancel_all_buy_limit_orders(product) : null;
-        await create_buy_limit_orders(product);
+    }
+    // determine total budget
+    const total_budget = (await binance.fetchBalance())[quote_currency].free;
+    for (const product of prouduct_scope) {
+        await create_buy_limit_orders(product, total_budget);
     }
 }
 
@@ -74,11 +79,12 @@ const cancel_all_buy_limit_orders = async (product) => {
     await batch_request([cancel_obj]);
 }
 
-const create_buy_limit_orders = async (product) => {
+const create_buy_limit_orders = async (product, total_budget) => {
     const markets_info = await binance.loadMarkets();
     const product_info = markets_info[product];
-    const product_budget = ((await binance.fetchBalance())[quote_currency].free - budget_abs_total) * budget_abs[product] / budget_abs_total;
-    console.log(`Budget for ${product}: ${product_budget}`);
+    console.log(`total budget ${total_budget}`);
+    const product_budget = (total_budget - budget_abs_total) * budget_abs[product] / budget_abs_total;
+    console.log(`budget for ${product}: ${product_budget}`);
     // request best bid/offer
     const product_price = await binance.fetchTicker(product);
     // console.log('product price', product_price);
@@ -86,6 +92,7 @@ const create_buy_limit_orders = async (product) => {
     const end = Math.min(product_price.bid * (1 - price_lowerb_pc2 / 100));
 
     const orders = create_buy_limit_param_array(start, end, bin_size, product_info, product_budget);
+    console.log(`sending buy limit orders for ${product}`);
     await batch_request(orders);
 }
 
@@ -140,7 +147,7 @@ const batch_request = async (req_arr) => {
                 }
                 break;
             case 'limit':
-                console.log(`sending limit order request`, req);
+                // console.log(`sending limit order request`, req);
                 if (!sandbox) {
                     await binance.createOrder(symbol, type, side, size, price);
                     await wait(100);
@@ -177,17 +184,24 @@ const main_timer = setInterval(async () => {
     let minute = tmstmp_current.getMinutes();
     let second = tmstmp_current.getSeconds();
 
-    const yesterday = new Date(tmstmp_current)
-    yesterday.setDate(yesterday.getDate() - 1)
-
     if ((hour === 1) && (minute === 0)) {
         if (!limits_reset) {
             limits_reset = true;
-            console.log('Routine DCA triggered');
+            console.log(`===== ${tmstmp_current.toISOString()} Routine DCA triggered =====`);
             await dca();
-            await dip();
+            console.log(`===== ${tmstmp_current.toISOString()} Routine DCA completed =====`);
+            // console.log(`===== ${tmstmp_current.toISOString()} Routine Dip Nets triggered =====`);
+            // await dip();
+            // console.log(`===== ${tmstmp_current.toISOString()} Routine Dip Nets completed =====`);
         }
     } else {
         limits_reset = false;
     }
+
+    if (second === 5) {
+        console.log(`===== ${tmstmp_current.toISOString()} Routine Dip Nets triggered =====`);
+        await dip();
+        console.log(`===== ${tmstmp_current.toISOString()} Routine Dip Nets completed =====`);
+    }
+
 }, 1000)
