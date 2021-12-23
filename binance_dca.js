@@ -190,18 +190,18 @@ const main_timer = setInterval(async () => {
             console.log(`===== ${tmstmp_current.toISOString()} Routine DCA triggered =====`);
             await dca();
             console.log(`===== ${tmstmp_current.toISOString()} Routine DCA completed =====`);
-            // console.log(`===== ${tmstmp_current.toISOString()} Routine Dip Nets triggered =====`);
-            // await dip();
-            // console.log(`===== ${tmstmp_current.toISOString()} Routine Dip Nets completed =====`);
+            console.log(`===== ${tmstmp_current.toISOString()} Routine Dip Nets triggered =====`);
+            await dip();
+            console.log(`===== ${tmstmp_current.toISOString()} Routine Dip Nets completed =====`);
         }
     } else {
         limits_reset = false;
     }
 
-    if (second === 5) {
-        console.log(`===== ${tmstmp_current.toISOString()} Routine Dip Nets triggered =====`);
-        await dip();
-        console.log(`===== ${tmstmp_current.toISOString()} Routine Dip Nets completed =====`);
-    }
+    // if (second === 5) {
+    //     console.log(`===== ${tmstmp_current.toISOString()} Routine Dip Nets triggered =====`);
+    //     await dip();
+    //     console.log(`===== ${tmstmp_current.toISOString()} Routine Dip Nets completed =====`);
+    // }
 
 }, 1000)
