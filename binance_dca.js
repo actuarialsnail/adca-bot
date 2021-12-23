@@ -20,7 +20,12 @@ switch (myArgs[0]) {
     default:
 }
 
-const { period_h, bin_size, price_lowerb_pc1, price_lowerb_pc2, prouduct_scope, quote_currency, budget_abs } = config.settings;
+const { bin_size, price_lowerb_pc1, price_lowerb_pc2, prouduct_scope, quote_currency, budget_abs } = config.settings;
+
+let budget_abs_total = 0;
+for (const product of prouduct_scope) {
+    budget_abs_total += budget_abs[product];
+}
 
 const dca = async () => {
 
@@ -39,8 +44,8 @@ const dip = async () => {
     for (const product of prouduct_scope) {
         let open_orders = await binance.fetchOpenOrders(product);
         console.log(`${open_orders.length} open orders found for ${product}`);
-        await reset_buy_limit_orders(open_orders, trade_mode);
-        await create_buy_limit_param_array()
+        open_orders.length > 0 ? await cancel_all_buy_limit_orders(product) : null;
+        await create_buy_limit_orders(product);
     }
 }
 
@@ -64,31 +69,28 @@ const create_buy_param_array = (info, budget, price) => {
     }
 }
 
-const reset_buy_limit_orders = async (open_orders) => {
-
-    const cancel_obj = create_cancel_param_obj(open_orders);
-    await batch_request(cancel_obj);
-
+const cancel_all_buy_limit_orders = async (product) => {
+    const cancel_obj = { symbol: product, type: 'cancel' }
+    await batch_request([cancel_obj]);
 }
 
-const create_cancel_param_obj = (open_orders) => {
-    let order_param_obj = {}
-    let count = 0;
-    for (const open_order of open_orders) {
-        // console.log(open_order)
-        if (open_order.side === 'buy' && open_order.type === 'limit') {
-            count++;
-            const { symbol, id, price, amount } = open_order;
-            if (!order_param_obj[symbol]) { order_param_obj[symbol] = [] }
-            order_param_obj[symbol].push({ symbol, type: 'cancel', id, price, amount });
-        }
-    }
-    console.log(`${count} buy limit orders found to be reset`);
-    return order_param_obj;
+const create_buy_limit_orders = async (product) => {
+    const markets_info = await binance.loadMarkets();
+    const product_info = markets_info[product];
+    const product_budget = ((await binance.fetchBalance())[quote_currency].free - budget_abs_total) * budget_abs[product] / budget_abs_total;
+    console.log(`Budget for ${product}: ${product_budget}`);
+    // request best bid/offer
+    const product_price = await binance.fetchTicker(product);
+    // console.log('product price', product_price);
+    const start = Math.min(product_price.bid * (1 - price_lowerb_pc1 / 100));
+    const end = Math.min(product_price.bid * (1 - price_lowerb_pc2 / 100));
+
+    const orders = create_buy_limit_param_array(start, end, bin_size, product_info, product_budget);
+    await batch_request(orders);
 }
 
 // order param array builder
-const create_buy_limit_param_array = (start, end, bin_size, info, budget, trend) => {
+const create_buy_limit_param_array = (start, end, bin_size, info, budget) => {
 
     let order_param_array = [];
 
@@ -104,28 +106,9 @@ const create_buy_limit_param_array = (start, end, bin_size, info, budget, trend)
     for (let i = 1; i <= bin_size; i++) {
 
         step_price[i] = Math.floor((start - delta_price * i) * 10 ** dec_price) / 10 ** dec_price;
-        switch (trend) {
-            case 'hyperbolic':
-                // squared increasing weights
-                step_size[i] = Math.floor(budget * i ** 2 / (bin_size * (bin_size + 1) * (2 * bin_size + 1) / 6) / (1 + info.maker) / step_price[i] * 10 ** dec_size) / 10 ** dec_size;
-                break;
-            case 'bull':
-                // linearly increasing weights
-                step_size[i] = Math.floor(budget * i / bin_size / ((bin_size + 1) / 2) / (1 + info.maker) / step_price[i] * 10 ** dec_size) / 10 ** dec_size;
-                break;
-            case 'range':
-                // flat or no increasing weights - use the arithmetic progression Sn = n(a1+an)/2
-                step_size[i] = Math.floor(budget / (bin_size * (start + end) / 2 * (1 + info.maker)) * 10 ** dec_size) / 10 ** dec_size;
-                break;
-            case 'bear':
-                // inverse-linearly increasing weights
-                step_size[i] = Math.floor(budget * (bin_size - i + 1) / bin_size / ((bin_size + 1) / 2) / (1 + info.maker) / step_price[i] * 10 ** dec_size) / 10 ** dec_size;
-                break;
-            default:
-                // flat or no increasing weights
-                step_size[i] = Math.floor(budget / (bin_size * (start + end) / 2 * (1 + info.maker)) * 10 ** dec_size) / 10 ** dec_size;
-                break;
-        }
+
+        // flat or no increasing weights
+        step_size[i] = Math.floor(budget / (bin_size * (start + end) / 2 * (1 + info.maker)) * 10 ** dec_size) / 10 ** dec_size;
 
         // validation, execute if trade parameters are within limits       
         const quote = step_size[i] * step_price[i];
@@ -157,7 +140,7 @@ const batch_request = async (req_arr) => {
                 }
                 break;
             case 'limit':
-                console.log(`sending limit order request to ${exchange}`, req);
+                console.log(`sending limit order request`, req);
                 if (!sandbox) {
                     await binance.createOrder(symbol, type, side, size, price);
                     await wait(100);
@@ -166,9 +149,9 @@ const batch_request = async (req_arr) => {
                 }
                 break;
             case 'cancel':
-                console.log(`sending cancel order request to ${exchange}`, req);
+                console.log(`sending cancel order request`, req);
                 if (!sandbox) {
-                    await binance.cancelOrder(req.id, req.symbol);
+                    await binance.cancelAllOrders(req.symbol);
                     await wait(100);
                 } else {
                     console.log('Sandbox mode is on.');
@@ -185,7 +168,7 @@ const batch_request = async (req_arr) => {
 let limits_reset = false;
 
 // dca();
-dip();
+// dip();
 
 const main_timer = setInterval(async () => {
 
@@ -201,14 +184,10 @@ const main_timer = setInterval(async () => {
         if (!limits_reset) {
             limits_reset = true;
             console.log('Routine DCA triggered');
-            dca();
+            await dca();
+            await dip();
         }
     } else {
         limits_reset = false;
     }
-
-    if (second === 5) {
-        dip();
-    }
-
 }, 1000)
