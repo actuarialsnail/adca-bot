@@ -1,7 +1,7 @@
 'use strict';
 const { wait, send_mail } = require('./utilities');
 const WebSocket = require('ws');
-const config = require('./config/config.js');
+const config = require('./config/config_binance_bk.js');
 const ccxt = require('ccxt');
 const coinbasepro_credential = config.credential.coinbase_dca;
 const binance_credential = config.credential.binance;
@@ -38,8 +38,8 @@ let kraken = new ccxt.kraken({
 
 let exchange_scope = {
     // coinbasepro,
-    // binance,
-    kraken,
+    binance,
+    // kraken,
 };
 
 const { period_h, bin_size, price_lowerb_pc, price_upperb_pc, trade_mode, prouduct_scope, quote_currency } = config.settings;
