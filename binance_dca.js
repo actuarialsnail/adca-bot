@@ -110,7 +110,7 @@ const create_buy_limit_param_array = (start, end, bin_size, info, budget) => {
     let step_size = [];
     let step_price = [];
 
-    for (let i = 1; i <= bin_size; i++) {
+    for (let i = 0; i < bin_size; i++) {
 
         step_price[i] = Math.floor((start - delta_price * i) * 10 ** dec_price) / 10 ** dec_price;
 
