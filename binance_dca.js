@@ -11,11 +11,21 @@ let binance = new ccxt.binance({
 });
 
 let sandbox = false;
+let manual_dca = false;
+let manual_dip = false;
 const myArgs = process.argv.slice(2);
 switch (myArgs[0]) {
     case 'test':
         sandbox = true;
         console.log('Sandbox mode is on');
+        break;
+    case 'dca':
+        manual_dca = true;
+        console.log('Manual DCA is activated');
+        break;
+    case 'dip':
+        manual_dip = true;
+        console.log('Manual Dip nets activated');
         break;
     default:
 }
@@ -30,13 +40,18 @@ for (const product of prouduct_scope) {
 const dca = async () => {
 
     const markets_info = await binance.loadMarkets();
+    const total_budget = (await binance.fetchBalance())[quote_currency].free;
 
-    for (const product of prouduct_scope) {
-        const product_info = markets_info[product];
-        const product_budget = budget_abs[product];
-        const product_price = (await binance.fetchTicker(product)).ask;
-        const param = create_buy_param_array(product_info, product_budget, product_price);
-        param ? await batch_request([param]) : null;
+    if (budget_abs_total > total_budget) {
+        console.log('insufficient free quote currency to DCA');
+    } else {
+        for (const product of prouduct_scope) {
+            const product_info = markets_info[product];
+            const product_budget = budget_abs[product];
+            const product_price = (await binance.fetchTicker(product)).ask;
+            const param = create_buy_param_array(product_info, product_budget, product_price);
+            param ? await batch_request([param]) : null;
+        }
     }
 }
 
@@ -46,6 +61,7 @@ const dip = async () => {
         let open_orders = await binance.fetchOpenOrders(product);
         console.log(`${open_orders.length} open orders found for ${product}`);
         open_orders.length > 0 ? await cancel_all_buy_limit_orders(product) : null;
+        console.log(`${product} buy limit orders cancelled`);
     }
     // determine total budget
     const total_budget = (await binance.fetchBalance())[quote_currency].free;
@@ -83,6 +99,7 @@ const create_buy_limit_orders = async (product, total_budget) => {
     const markets_info = await binance.loadMarkets();
     const product_info = markets_info[product];
     console.log(`total budget ${total_budget}`);
+    console.log(`budget for DCA ${budget_abs_total}`);
     const product_budget = (total_budget - budget_abs_total) * budget_abs[product] / budget_abs_total;
     console.log(`budget for ${product}: ${product_budget}`);
     // request best bid/offer
@@ -110,7 +127,7 @@ const create_buy_limit_param_array = (start, end, bin_size, info, budget) => {
     let step_size = [];
     let step_price = [];
 
-    for (let i = 0; i < bin_size; i++) {
+    for (let i = 1; i <= bin_size; i++) {
 
         step_price[i] = Math.floor((start - delta_price * i) * 10 ** dec_price) / 10 ** dec_price;
 
@@ -174,8 +191,12 @@ const batch_request = async (req_arr) => {
 
 let limits_reset = false;
 
-// dca();
-// dip();
+if (sandbox) {
+    dca();
+    dip();
+}
+manual_dca ? dca() : null;
+manual_dip ? dip() : null;
 
 const main_timer = setInterval(async () => {
 
