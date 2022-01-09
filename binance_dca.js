@@ -208,12 +208,12 @@ const main_timer = setInterval(async () => {
     if ((hour === 17) && (minute === 0)) {
         if (!limits_reset) {
             limits_reset = true;
-            console.log(`===== ${tmstmp_current.toISOString()} Routine DCA triggered =====`);
-            await dca();
-            console.log(`===== ${tmstmp_current.toISOString()} Routine DCA completed =====`);
             console.log(`===== ${tmstmp_current.toISOString()} Routine Dip Nets triggered =====`);
             await dip();
             console.log(`===== ${tmstmp_current.toISOString()} Routine Dip Nets completed =====`);
+            console.log(`===== ${tmstmp_current.toISOString()} Routine DCA triggered =====`);
+            await dca();
+            console.log(`===== ${tmstmp_current.toISOString()} Routine DCA completed =====`);
         }
     } else {
         limits_reset = false;
