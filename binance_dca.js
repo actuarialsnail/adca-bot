@@ -1,7 +1,7 @@
 'use strict';
 const ccxt = require('ccxt');
 const config = require('./config/config_binance.js');
-const { wait } = require('./utilities');
+const { wait, send_mail } = require('./utilities');
 
 const binance_credential = config.credential;
 
@@ -214,6 +214,7 @@ const main_timer = setInterval(async () => {
             console.log(`===== ${tmstmp_current.toISOString()} Routine DCA triggered =====`);
             await dca();
             console.log(`===== ${tmstmp_current.toISOString()} Routine DCA completed =====`);
+            send_mail('routine_notify', `${tmstmp_current.toISOString()}: Routine Dip Nets and DCA completed`);
         }
     } else {
         limits_reset = false;

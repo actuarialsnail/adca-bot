@@ -21,6 +21,12 @@ const send_mail = (type, msg, filename) => {
             ]
             break;
 
+        case 'routine_notify':
+            mailOptions.subject = 'DCA bot routine report';
+            mailOptions.text = msg;
+            mailOptions.attachments = [];
+            break;
+
         default:
             break;
     }
