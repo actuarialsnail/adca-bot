@@ -80,7 +80,7 @@ const createTransporter = async () => {
 };
 
 //emailOptions - who sends what to whom
-const send_email = async (emailOptions) => {
+const send_mail = async (emailOptions) => {
     let emailTransporter = await createTransporter();
     await emailTransporter.sendMail(emailOptions);
 };
