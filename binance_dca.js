@@ -214,7 +214,12 @@ const main_timer = setInterval(async () => {
             console.log(`===== ${tmstmp_current.toISOString()} Routine DCA triggered =====`);
             await dca();
             console.log(`===== ${tmstmp_current.toISOString()} Routine DCA completed =====`);
-            send_mail('routine_notify', `${tmstmp_current.toISOString()}: Routine Dip Nets and DCA completed`);
+            send_mail({
+                subject: "DCA bot routine report",
+                text: `${tmstmp_current.toISOString()}: Routine Dip Nets and DCA completed`,
+                to: config.nodemailRecipients[0],
+                from: config.arbitorCoinNodeMailerCred.EMAIL
+            });
         }
     } else {
         limits_reset = false;
