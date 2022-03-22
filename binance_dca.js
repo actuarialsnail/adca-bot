@@ -1,6 +1,8 @@
 'use strict';
 const ccxt = require('ccxt');
 const config = require('./config/config_binance.js');
+const _config = require('./config/config.js');
+
 const { wait, send_mail } = require('./utilities');
 
 const binance_credential = config.credential;
@@ -217,8 +219,8 @@ const main_timer = setInterval(async () => {
             send_mail({
                 subject: "DCA bot routine report",
                 text: `${tmstmp_current.toISOString()}: Routine Dip Nets and DCA completed`,
-                to: config.nodemailRecipients[0],
-                from: config.arbitorCoinNodeMailerCred.EMAIL
+                to: _config.nodemailRecipients[0],
+                from: _config.arbitorCoinNodeMailerCred.EMAIL
             });
         }
     } else {
