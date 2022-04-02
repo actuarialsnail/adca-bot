@@ -193,17 +193,17 @@ const batch_request = async (req_arr) => {
         const { symbol, type, side, size, price, quoteOrderQty, params } = req;
         switch (type) {
             case 'market':
-                console.log(`sending market order request`, req);
+                // console.log(`sending market order request`, req);
                 if (!sandbox) {
                     const order = await kraken.create_order(symbol, type, side, null, null, { quoteOrderQty }) // to specify costs
-                    console.log(order)
+                    // console.log(order)
                     await wait(100);
                 } else {
                     console.log('Sandbox mode is on.');
                 }
                 break;
             case 'limit':
-                console.log(`sending limit order request`, req);
+                // console.log(`sending limit order request`, req);
                 if (!sandbox) {
                     await kraken.createOrder(symbol, type, side, size, price, params);
                     await wait(100);
@@ -212,7 +212,7 @@ const batch_request = async (req_arr) => {
                 }
                 break;
             case 'cancel':
-                console.log(`sending cancel order request`, req);
+                // console.log(`sending cancel order request`, req);
                 if (!sandbox) {
                     await kraken.cancelOrder(req.id, symbol);
                     await wait(100);
