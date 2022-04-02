@@ -12,6 +12,9 @@ let kraken = new ccxt.kraken({
     secret: kraken_credential.secretKey,
 });
 
+const taapi = require("taapi");
+const taapi_client = taapi.client(_config.credential.taapi.secret);
+
 let sandbox = false;
 let manual_dca = false;
 let manual_dip = false;
@@ -39,6 +42,9 @@ for (const product of prouduct_scope) {
     budget_abs_total += budget_abs[product];
 }
 
+// add condition check - needs to be range bound for grid trading
+let range_bound = {}
+
 const dca = async () => {
 
     const markets_info = await kraken.loadMarkets();
@@ -58,18 +64,21 @@ const dca = async () => {
 }
 
 const dip = async () => {
+
     // perform cancellation to all orders first to fully utilise budget
     for (const product of prouduct_scope) {
-        let open_orders = await kraken.fetchOpenOrders(product);
-        console.log(`${open_orders.length} open orders found for ${product}`);
-        open_orders.length > 0 ? await reset_buy_limit_orders(open_orders) : null;
-        console.log(`${product} buy limit orders cancelled`);
+        if (range_bound[product]) {
+            let open_orders = await kraken.fetchOpenOrders(product);
+            console.log(`${open_orders.length} open orders found for ${product}`);
+            open_orders.length > 0 ? await reset_buy_limit_orders(open_orders) : null;
+            console.log(`${product} buy limit orders cancelled`);
+        }
     }
     // determine total budget
     // .free attribute is not available from kraken API but ok to use total given buy limits are already cleared
     const total_budget = (await kraken.fetchBalance())[quote_currency].total;
     for (const product of prouduct_scope) {
-        await create_buy_limit_orders(product, total_budget);
+        range_bound[product] ? await create_buy_limit_orders(product, total_budget) : null;
     }
 }
 
@@ -215,11 +224,11 @@ const batch_request = async (req_arr) => {
                 console.log('unkown type detected, request not executed');
                 break;
         }
-
     }
 }
 
 let limits_reset = false;
+let taapi_trigger = false;
 
 if (sandbox) {
     dca();
@@ -234,7 +243,7 @@ const main_timer = setInterval(async () => {
     let hour = tmstmp_current.getHours();
     let minute = tmstmp_current.getMinutes();
 
-    if ((hour === 17) && (minute === 0)) {
+    if ((minute % 5 === 0)) { //every 5 minutes
         if (!limits_reset) {
             limits_reset = true;
             console.log(`===== ${tmstmp_current.toISOString()} Routine Dip Nets triggered =====`);
@@ -243,15 +252,38 @@ const main_timer = setInterval(async () => {
             // console.log(`===== ${tmstmp_current.toISOString()} Routine DCA triggered =====`);
             // await dca();
             // console.log(`===== ${tmstmp_current.toISOString()} Routine DCA completed =====`);
-            send_mail({
-                subject: "DCA bot routine report",
-                text: `${tmstmp_current.toISOString()}: Routine Dip Nets and DCA completed`,
-                to: _config.nodemailRecipients[0],
-                from: _config.arbitorCoinNodeMailerCred.EMAIL
-            });
+            // send_mail({
+            //     subject: "DCA bot routine report",
+            //     text: `${tmstmp_current.toISOString()}: Routine Dip Nets and DCA completed`,
+            //     to: _config.nodemailRecipients[0],
+            //     from: _config.arbitorCoinNodeMailerCred.EMAIL
+            // });
         }
     } else {
         limits_reset = false;
+    }
+
+    if (minute === 13 || minute === 43) { //every half hour
+        if (!taapi_trigger) {
+            taapi_trigger = true;
+            for (const product of prouduct_scope) {
+                const api_res_rsi = await taapi_client.getIndicator(
+                    "rsi", "binance", product, config.settings.indicators.rsi.timeframe,
+                    {
+                        optInTimePeriod: config.settings.indicators.rsi.period,
+                    }
+                )
+                console.log(`${product} rsi is: ${api_res_rsi.value}`)
+                if (api_res_rsi.value > 30 && api_res_rsi.value < 70) {
+                    range_bound[product] = true;
+                } else {
+                    range_bound[product] = false;
+                }
+                await wait(61 * 1000); // prevent E429: API request limit
+            }
+        }
+    } else {
+        taapi_trigger = false;
     }
 
 }, 1000)
