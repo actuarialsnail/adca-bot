@@ -72,6 +72,8 @@ const dip = async () => {
             console.log(`${open_orders.length} open orders found for ${product}`);
             open_orders.length > 0 ? await reset_buy_limit_orders(open_orders) : null;
             console.log(`${product} buy limit orders cancelled`);
+        } else {
+            console.log(`${product} range bound is ${range_bound[product]}`);
         }
     }
     // determine total budget
