@@ -117,5 +117,5 @@ resp = kraken_request('/0/private/OpenOrders', {
 }, api_key, api_sec)
 
 # print(resp.json())
-with open('data.json', 'w') as f:
+with open('/reports/data.json', 'w') as f:
     json.dump(resp.json()['result']['open'], f)
