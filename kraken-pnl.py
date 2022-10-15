@@ -90,7 +90,7 @@ resp = kraken_request('/0/private/RetrieveExport', {
 }, api_key, api_sec)
 
 # Write export to a new file 'myexport.zip'
-target_path = '/reports/myexport.zip'
+target_path = './reports/myexport.zip'
 handle = open(target_path, "wb")
 for chunk in resp.iter_content(chunk_size=512):
     if chunk:  # filter out keep-alive new chunks
@@ -117,5 +117,5 @@ resp = kraken_request('/0/private/OpenOrders', {
 }, api_key, api_sec)
 
 # print(resp.json())
-with open('/reports/data.json', 'w') as f:
+with open('./reports/data.json', 'w') as f:
     json.dump(resp.json()['result']['open'], f)
