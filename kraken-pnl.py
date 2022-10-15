@@ -97,6 +97,10 @@ for chunk in resp.iter_content(chunk_size=512):
         handle.write(chunk)
 handle.close()
 
+import zipfile
+with zipfile.ZipFile('./reports/myexport.zip', 'r') as zip_ref:
+    zip_ref.extractall('./reports/')
+
 # Delete report?
 resp = kraken_request('/0/private/RemoveExport', {
     "nonce": str(int(1000*time.time())),
