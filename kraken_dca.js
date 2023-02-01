@@ -159,7 +159,7 @@ const create_buy_limit_param_array = (start, end, bin_size, info, budget) => {
         } else {
             order_param_array.push({
                 symbol: info.symbol, price: step_price[i], size: step_size[i], side: 'buy', type: 'limit',
-                params: { 'close[ordertype]': 'limit', 'close[price]': step_price_sell_margin }
+                params: { 'close[ordertype]': 'limit', 'close[price]': step_price_sell_margin, 'userref': 777 }
             })
         }
     }
