@@ -35,7 +35,7 @@ switch (myArgs[0]) {
     default:
 }
 
-const { bin_size, price_lowerb_pc1, price_lowerb_pc2, prouduct_scope, quote_currency, budget_abs, price_sell_margin_pc } = config.settings;
+const { bin_size, price_lowerb_pc1, price_lowerb_pc2, prouduct_scope, quote_currency, budget_abs, price_sell_margin_pc, max_dip_budget } = config.settings;
 
 let budget_abs_total = 0;
 for (const product of prouduct_scope) {
@@ -115,14 +115,16 @@ const create_buy_limit_orders = async (product, total_budget) => {
     console.log(`total budget ${total_budget}`);
     console.log(`budget for DCA ${budget_abs_total}`);
     const product_budget = (total_budget - budget_abs_total) * budget_abs[product] / budget_abs_total;
-    console.log(`budget for ${product}: ${product_budget}`);
+    const product_budget_cap = Math.min(product_budget, max_dip_budget);
+    console.log(`budget for ${product}: ${product_budget}, post cap: ${product_budget_cap}`);
+
     // request best bid/offer
     const product_price = await kraken.fetchTicker(product);
     // console.log('product price', product_price);
     const start = Math.min(product_price.bid * (1 - price_lowerb_pc1 / 100));
     const end = Math.min(product_price.bid * (1 - price_lowerb_pc2 / 100));
 
-    const orders = create_buy_limit_param_array(start, end, bin_size, product_info, product_budget);
+    const orders = create_buy_limit_param_array(start, end, bin_size, product_info, product_budget_cap);
     console.log(`sending buy limit orders for ${product}`);
     await batch_request(orders);
 }
