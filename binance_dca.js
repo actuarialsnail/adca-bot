@@ -88,7 +88,10 @@ const create_buy_param_array = (info, budget, price) => {
     } else if (quote < info.limits.cost.min) {
         console.log(`${info.symbol}: quote size ${quote} (${size} * ${price}) is below the minimum ${info.limits.cost.min}`)
     } else {
-        return { symbol: info.symbol, quoteOrderQty: quote, side: 'buy', type: 'market' };
+        // quoteOrderQtyMarketAllowed : true`
+        // return { symbol: info.symbol, quoteOrderQty: quote, side: 'buy', type: 'market' };
+        // quoteOrderQtyMarketAllowed : false work around
+        return { symbol: info.symbol, size: size, price: price, side: 'buy', type: 'limit' };
     }
 }
 
