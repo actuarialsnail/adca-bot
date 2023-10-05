@@ -210,7 +210,7 @@ const main_timer = setInterval(async () => {
     let minute = tmstmp_current.getMinutes();
     let second = tmstmp_current.getSeconds();
 
-    if ((hour === 17) && (minute === 0)) {
+    if ((hour === 16) && (minute === 0)) {
         if (!limits_reset) {
             limits_reset = true;
             console.log(`===== ${tmstmp_current.toISOString()} Routine Dip Nets triggered =====`);
