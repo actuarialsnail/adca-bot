@@ -14,6 +14,15 @@ configFilePath = r'./config/config_hashkey.cfg'
 config.read(configFilePath)
 
 
+def set_interval(func, sec):
+    def func_wrapper():
+        set_interval(func, sec)
+        func()
+    t = threading.Timer(sec, func_wrapper)
+    t.start()
+    return t
+
+
 class WebSocketClient:
     def __init__(self, user_key, user_secret, subed_topic=[]):
         self.user_key = user_key
@@ -23,6 +32,7 @@ class WebSocketClient:
         self._logger = logging.getLogger(__name__)
         self._ws = None
         self._ping_thread = None
+        self.polled_price = None
 
     def generate_listen_key(self):
         params = {
@@ -53,14 +63,14 @@ class WebSocketClient:
             secret_key.encode(), data[:-1].encode(), digestmod=hashlib.sha256).hexdigest()
         return signature
 
-    def create_new_order(self, secret_key, params):
+    def create_new_order(self, params):
 
         api_headers = {
-            'X-HK-APIKEY': user_key,
+            'X-HK-APIKEY': self.user_key,
             'content-type': 'application/x-www-form-urlencoded;charset=UTF-8',
         }
         signature = self.create_hmac256_signature(
-            secret_key=user_secret, params=params)
+            secret_key=self.user_secret, params=params)
 
         params.update({
             'signature': signature,
@@ -68,6 +78,26 @@ class WebSocketClient:
 
         response = requests.post(
             url=f"https://api-pro.hashkey.com/api/v1/spot/order", headers=api_headers, data=params)
+        res = response.json()
+
+        return res
+
+    def cancel_all_buy_orders(self):
+        params = {
+            'side': "BUY",
+            'timestamp': int(time.time() * 1000),
+        }
+        api_headers = {
+            "accept": "application/json",
+            'X-HK-APIKEY': self.user_key
+        }
+        signature = self.create_hmac256_signature(
+            secret_key=self.user_secret, params=params)
+        params.update({
+            'signature': signature,
+        })
+        response = requests.delete(
+            url=f"https://api-pro.hashkey.com/api/v1/spot/openOrders", headers=api_headers, data=params)
         res = response.json()
 
         return res
@@ -87,7 +117,7 @@ class WebSocketClient:
             for order in data:
                 if order["e"] == "executionReport" and order["S"] == "BUY" and order["o"] == "LIMIT" and order["X"] == "FILLED":
                     # set up a limit sell order with profit margin
-                    sell_price = float(order['p']) * 1.01
+                    sell_price = round(float(order['p']) * 1.01)
                     params = {
                         "symbol": order['s'],
                         "price": sell_price,
@@ -96,8 +126,7 @@ class WebSocketClient:
                         "quantity": order['q'],
                         'timestamp': int(time.time() * 1000),
                     }
-
-                    self.create_new_order(self.user_secret, params)
+                    self.create_new_order(params)
 
     def _on_error(self, ws, error):
         self._logger.error(f"WebSocket error: {error}")
@@ -135,14 +164,38 @@ class WebSocketClient:
                 self._logger.info(f"Send ping message: {ping_message}")
 
                 # cancel all buy limit orders
+                self._logger.info(
+                    f"Buy orders cancelled: {self.cancel_all_buy_orders()}")
 
                 # create new buy limit orders
+                self._get_polled_price()
+                self._logger.info(f"Polled price: {self.polled_price}")
+                buy_price = round(self.polled_price * 0.99)
+                params = {
+                    "symbol": 'BTCHKD',
+                    "price": buy_price,
+                    "side": 'BUY',
+                    "type": 'LIMIT',
+                    "quantity": 0.005,
+                    'timestamp': int(time.time() * 1000),
+                }
+                self._logger.info(
+                    f"New buy limit orders created: {self.create_new_order(params)}")
 
-                time.sleep(5)
+                time.sleep(60)
 
         self._ping_thread = threading.Thread(target=send_ping)
         self._ping_thread.daemon = True
         self._ping_thread.start()
+
+    def _get_polled_price(self):
+        url = "https://api-pro.hashkey.com/quote/v1/ticker/price"
+        headers = {"accept": "application/json"}
+        response = requests.get(url, headers=headers)
+        # print(type(response), response.text)
+        for pair in response.json():
+            if pair['s'] == 'BTCHKD':
+                self.polled_price = float(pair['p'])
 
     def unsubscribe(self):
         if self._ws:
@@ -186,4 +239,5 @@ if __name__ == '__main__':
     subed_topics = ["trade"]
 
     client = WebSocketClient(user_key, user_secret, subed_topics)
+
     client.connect()
