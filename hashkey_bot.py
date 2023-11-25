@@ -117,7 +117,7 @@ class WebSocketClient:
             for order in data:
                 if order["e"] == "executionReport" and order["S"] == "BUY" and order["o"] == "LIMIT" and order["X"] == "FILLED":
                     # set up a limit sell order with profit margin
-                    sell_price = round(float(order['p']) * 1.01)
+                    sell_price = round(float(order['p']) * float(config['DEFAULT']['sell_limit_margin']))
                     params = {
                         "symbol": order['s'],
                         "price": sell_price,
@@ -170,13 +170,13 @@ class WebSocketClient:
                 # create new buy limit orders
                 self._get_polled_price()
                 self._logger.info(f"Polled price: {self.polled_price}")
-                buy_price = round(self.polled_price * 0.99)
+                buy_price = round(self.polled_price * float(config['DEFAULT']['buy_limit_margin']))
                 params = {
                     "symbol": 'BTCHKD',
                     "price": buy_price,
                     "side": 'BUY',
                     "type": 'LIMIT',
-                    "quantity": 0.005,
+                    "quantity": 0.0005,
                     'timestamp': int(time.time() * 1000),
                 }
                 self._logger.info(
