@@ -78,7 +78,12 @@ class WebSocketClient:
 
         response = requests.post(
             url=f"https://api-pro.hashkey.com/api/v1/spot/order", headers=api_headers, data=params)
-        res = response.json()
+
+        try:
+            res = response.json()
+        except Exception as e:
+            self._logger.error(
+                f"WebSocket error: {e} response received {response.text}")
 
         return res
 
@@ -98,7 +103,12 @@ class WebSocketClient:
         })
         response = requests.delete(
             url=f"https://api-pro.hashkey.com/api/v1/spot/openOrders", headers=api_headers, data=params)
-        res = response.json()
+        
+        try:
+            res = response.json()
+        except Exception as e:
+            self._logger.error(
+                f"WebSocket error: {e} response received {response.text}")
 
         return res
 
@@ -117,7 +127,8 @@ class WebSocketClient:
             for order in data:
                 if order["e"] == "executionReport" and order["S"] == "BUY" and order["o"] == "LIMIT" and order["X"] == "FILLED":
                     # set up a limit sell order with profit margin
-                    sell_price = round(float(order['p']) * float(config['DEFAULT']['sell_limit_margin']))
+                    sell_price = round(
+                        float(order['p']) * float(config['DEFAULT']['sell_limit_margin']))
                     params = {
                         "symbol": order['s'],
                         "price": sell_price,
@@ -170,7 +181,8 @@ class WebSocketClient:
                 # create new buy limit orders
                 self._get_polled_price()
                 self._logger.info(f"Polled price: {self.polled_price}")
-                buy_price = round(self.polled_price * float(config['DEFAULT']['buy_limit_margin']))
+                buy_price = round(self.polled_price *
+                                  float(config['DEFAULT']['buy_limit_margin']))
                 params = {
                     "symbol": 'BTCHKD',
                     "price": buy_price,
