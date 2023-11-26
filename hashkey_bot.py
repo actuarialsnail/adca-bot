@@ -81,11 +81,11 @@ class WebSocketClient:
 
         try:
             res = response.json()
+            return res
         except Exception as e:
             self._logger.error(
                 f"WebSocket error: {e} response received {response.text}")
 
-        return res
 
     def cancel_all_buy_orders(self):
         params = {
@@ -106,11 +106,10 @@ class WebSocketClient:
         
         try:
             res = response.json()
+            return res
         except Exception as e:
             self._logger.error(
-                f"WebSocket error: {e} response received {response.text}")
-
-        return res
+                f"WebSocket error: {e} response received {response.text}")      
 
     def _on_message(self, ws, message):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
