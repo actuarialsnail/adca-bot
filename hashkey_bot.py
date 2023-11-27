@@ -76,16 +76,15 @@ class WebSocketClient:
             'signature': signature,
         })
 
-        response = requests.post(
-            url=f"https://api-pro.hashkey.com/api/v1/spot/order", headers=api_headers, data=params)
-
         try:
+            response = requests.post(
+                url=f"https://api-pro.hashkey.com/api/v1/spot/order", headers=api_headers, data=params)
+
             res = response.json()
             return res
         except Exception as e:
             self._logger.error(
-                f"WebSocket error: {e} response received {response.text}")
-
+                f"Create new order error: {e} response received {response.text}")
 
     def cancel_all_buy_orders(self):
         params = {
@@ -101,15 +100,16 @@ class WebSocketClient:
         params.update({
             'signature': signature,
         })
-        response = requests.delete(
-            url=f"https://api-pro.hashkey.com/api/v1/spot/openOrders", headers=api_headers, data=params)
-        
+
         try:
+            response = requests.delete(
+                url=f"https://api-pro.hashkey.com/api/v1/spot/openOrders", headers=api_headers, data=params)
+
             res = response.json()
             return res
         except Exception as e:
             self._logger.error(
-                f"WebSocket error: {e} response received {response.text}")      
+                f"Cancel buy orders error: {e} response received {response.text}")
 
     def _on_message(self, ws, message):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -202,11 +202,14 @@ class WebSocketClient:
     def _get_polled_price(self):
         url = "https://api-pro.hashkey.com/quote/v1/ticker/price"
         headers = {"accept": "application/json"}
-        response = requests.get(url, headers=headers)
-        # print(type(response), response.text)
-        for pair in response.json():
-            if pair['s'] == 'BTCHKD':
-                self.polled_price = float(pair['p'])
+        try:
+            response = requests.get(url, headers=headers)
+            # print(type(response), response.text)
+            for pair in response.json():
+                if pair['s'] == 'BTCHKD':
+                    self.polled_price = float(pair['p'])
+        except Exception as e:
+            self._logger.error(f"Get price error: {e}")
 
     def unsubscribe(self):
         if self._ws:
