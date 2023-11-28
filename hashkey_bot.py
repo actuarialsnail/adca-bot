@@ -200,14 +200,14 @@ class WebSocketClient:
         self._ping_thread.start()
 
     def _get_polled_price(self):
-        url = "https://api-pro.hashkey.com/quote/v1/ticker/price"
+        url = "https://api-pro.hashkey.com/quote/v1/ticker/bookTicker"
         headers = {"accept": "application/json"}
         try:
             response = requests.get(url, headers=headers)
             # print(type(response), response.text)
             for pair in response.json():
                 if pair['s'] == 'BTCHKD':
-                    self.polled_price = float(pair['p'])
+                    self.polled_price = float(pair['b'])
         except Exception as e:
             self._logger.error(f"Get price error: {e}")
 
