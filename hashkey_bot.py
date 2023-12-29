@@ -138,6 +138,35 @@ class WebSocketClient:
                     }
                     self.create_new_order(params)
 
+                if order["e"] == "executionReport" and order["S"] == "SELL" and order["o"] == "LIMIT" and order["X"] == "REJECTED":
+                    self._logger.error(f"Previous sell order rejected")
+                    # check for failed sell order, if it's because price is below bid, try to increase the sell limit price
+                    sell_price = round(
+                        float(order['p']) * float(config['DEFAULT']['sell_limit_margin']))
+                    params = {
+                        "symbol": order['s'],
+                        "price": sell_price,
+                        "side": 'SELL',
+                        "type": 'LIMIT',
+                        "quantity": order['q'],
+                        'timestamp': int(time.time() * 1000),
+                    }
+                    self.create_new_order(params)
+
+                if order["e"] == "executionReport" and order["S"] == "BUY" and order["o"] == "LIMIT" and order["X"] == "PARTIALLY_CANCELED":
+                    # set up a limit sell order with profit margin for partially filled orders that are cancelled
+                    sell_price = round(
+                        float(order['p']) * float(config['DEFAULT']['sell_limit_margin']))
+                    params = {
+                        "symbol": order['s'],
+                        "price": sell_price,
+                        "side": 'SELL',
+                        "type": 'LIMIT',
+                        "quantity": order['z'],
+                        'timestamp': int(time.time() * 1000),
+                    }
+                    self.create_new_order(params)
+
     def _on_error(self, ws, error):
         self._logger.error(f"WebSocket error: {error}")
 
@@ -187,7 +216,7 @@ class WebSocketClient:
                     "price": buy_price,
                     "side": 'BUY',
                     "type": 'LIMIT',
-                    "quantity": 0.0005,
+                    "quantity": config['DEFAULT']['trade_btc_quantity'],
                     'timestamp': int(time.time() * 1000),
                 }
                 self._logger.info(
