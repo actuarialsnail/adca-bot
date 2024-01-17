@@ -267,12 +267,12 @@ const main_timer = setInterval(async () => {
         limits_reset = false;
     }
 
-    if (minute === 13 || minute === 43) { //every half hour
+    if (minute === 14 || minute === 43) { //every half hour
         if (!taapi_trigger) {
             taapi_trigger = true;
             for (const product of prouduct_scope) {
                 const api_res_rsi = await taapi_client.getIndicator(
-                    "rsi", "binance", product, config.settings.indicators.rsi.timeframe,
+                    "rsi", "binance", product.split('/')[0] + 'USDT', config.settings.indicators.rsi.timeframe,
                     {
                         optInTimePeriod: config.settings.indicators.rsi.period,
                     }
