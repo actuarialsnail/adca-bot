@@ -222,7 +222,7 @@ class WebSocketClient:
                 self._logger.info(
                     f"New buy limit orders created: {self.create_new_order(params)}")
 
-                time.sleep(60)
+                time.sleep(int(config['DEFAULT']['trade_interval_s']))
 
         self._ping_thread = threading.Thread(target=send_ping)
         self._ping_thread.daemon = True
