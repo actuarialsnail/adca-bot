@@ -222,21 +222,48 @@ class WebSocketClient:
                 self._logger.info(
                     f"New buy limit orders created: {self.create_new_order(params)}")
 
-                time.sleep(int(config['DEFAULT']['trade_interval_s']))
+                sleep_s = int(config['DEFAULT']['trade_interval_s'])
 
-        self._ping_thread = threading.Thread(target=send_ping)
-        self._ping_thread.daemon = True
+                # run scheduled dca buy market orders
+                hour = datetime.datetime.now().hour   # the current hour
+                minute = datetime.datetime.now().minute  # the current minute
+
+                q = round(
+                    float(config['DEFAULT']['dca_btc_amount_HKD'])/self.polled_price, 6)
+                self._logger.info(
+                    f"{q}")
+                params = {
+                    "symbol": 'BTCHKD',
+                    "side": 'BUY',
+                    "type": 'market',
+                    "quantity": q,
+                    'timestamp': int(time.time() * 1000),
+                }
+
+                # if sleep_s <= 60 and hour == 0 and minute == 4:
+                #     # execute market buy order for dca
+                #     self._logger.info(
+                #         f"New buy market orders created: {self.create_new_order(params)}")
+                # elif sleep_s > 60 and sleep_s <= 3600 and hour == 23:
+                #     # execute market buy order for dca
+                #     self._logger.info(
+                #         f"New buy market orders created: {self.create_new_order(params)}")
+
+                time.sleep(sleep_s)
+
+        self._ping_thread=threading.Thread(target=send_ping)
+        self._ping_thread.daemon=True
         self._ping_thread.start()
 
     def _get_polled_price(self):
-        url = "https://api-pro.hashkey.com/quote/v1/ticker/bookTicker"
-        headers = {"accept": "application/json"}
+        url="https://api-pro.hashkey.com/quote/v1/ticker/bookTicker"
+        headers={"accept": "application/json"}
         try:
-            response = requests.get(url, headers=headers)
+            response=requests.get(url, headers=headers)
             # print(type(response), response.text)
             for pair in response.json():
                 if pair['s'] == 'BTCHKD':
-                    self.polled_price = float(pair['b'])
+                    self.polled_price=float(pair['b'])
         except Exception as e:
             self._logger.error(f"Get price error: {e}")
 
@@ -244,7 +271,7 @@ class WebSocketClient:
         if self._ws:
             self._logger.info("Unsubscribing from topics")
             for topic in self.subed_topic:
-                unsub = {
+                unsub={
                     "symbol": "BTCUSD",
                     "topic": topic,
                     "event": "cancel_all",
