@@ -78,7 +78,7 @@ class WebSocketClient:
 
         try:
             response = requests.post(
-                url=f"https://api-pro.hashkey.com/api/v1/spot/order", headers=api_headers, data=params)
+                url=f"https://api-pro.hashkey.com/api/v1.1/spot/order", headers=api_headers, data=params)
 
             res = response.json()
             return res
