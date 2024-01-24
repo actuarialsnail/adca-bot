@@ -13,6 +13,8 @@ config = configparser.ConfigParser()
 configFilePath = r'./config/config_hashkey.cfg'
 config.read(configFilePath)
 
+trade_pairs = config['DEFAULT']['trade_pairs'].split(',')
+
 
 def set_interval(func, sec):
     def func_wrapper():
@@ -24,15 +26,17 @@ def set_interval(func, sec):
 
 
 class WebSocketClient:
-    def __init__(self, user_key, user_secret, subed_topic=[]):
+    def __init__(self, user_key, user_secret, subed_topic=[], subed_symbols=[]):
         self.user_key = user_key
         self.user_secret = user_secret
         self.subed_topic = subed_topic
+        self.subed_symbols = subed_symbols
         self.listen_key = None
         self._logger = logging.getLogger(__name__)
         self._ws = None
         self._ping_thread = None
-        self.polled_price = None
+        self.polled_price = {}
+        self.ws_price = {}
 
     def generate_listen_key(self):
         params = {
@@ -121,7 +125,9 @@ class WebSocketClient:
             self._logger.info("Received pong message")
 
         # Handle the received market data here
+        # Note Private WS does not provide public data, separate ws required
 
+        # Handle the received private stream updates here
         if isinstance(data, list):
             for order in data:
                 if order["e"] == "executionReport" and order["S"] == "BUY" and order["o"] == "LIMIT" and order["X"] == "FILLED":
@@ -176,18 +182,18 @@ class WebSocketClient:
     def _on_open(self, ws):
         self._logger.info("Subscribing to topics")
         for topic in self.subed_topic:
-            sub = {
-                "symbol": "BTCUSD",
-                "topic": topic,
-                "event": "sub",
-                "params": {
-                    "limit": "100",
-                    "binary": False
-                },
-                "id": 1
-            }
-            ws.send(json.dumps(sub))
-            self._logger.info(f"Send message: {sub}")
+            for symbol in self.subed_symbols:
+                sub = {
+                    "symbol": symbol,
+                    "topic": topic,
+                    "event": "sub",
+                    "params": {
+                        "binary": False
+                    },
+                    "id": 1
+                }
+                ws.send(json.dumps(sub))
+                self._logger.info(f"Send message: {sub}")
 
         # Start the ping thread after connecting
         self._start_ping_thread()
@@ -209,18 +215,20 @@ class WebSocketClient:
                 # create new buy limit orders
                 self._get_polled_price()
                 self._logger.info(f"Polled price: {self.polled_price}")
-                buy_price = round(self.polled_price *
-                                  float(config['DEFAULT']['buy_limit_margin']))
-                params = {
-                    "symbol": 'BTCHKD',
-                    "price": buy_price,
-                    "side": 'BUY',
-                    "type": 'LIMIT',
-                    "quantity": config['DEFAULT']['trade_btc_quantity'],
-                    'timestamp': int(time.time() * 1000),
-                }
-                self._logger.info(
-                    f"New buy limit orders created: {self.create_new_order(params)}")
+
+                for pair in trade_pairs:
+                    buy_price = round(float(self.polled_price[pair]) *
+                                      float(config['DEFAULT']['buy_limit_margin']))
+                    params = {
+                        "symbol": pair,
+                        "price": buy_price,
+                        "side": 'BUY',
+                        "type": 'LIMIT',
+                        "quantity": config['DEFAULT']['trade_' + pair + '_quantity'],
+                        'timestamp': int(time.time() * 1000),
+                    }
+                    self._logger.info(
+                        f"New buy limit orders created: {self.create_new_order(params)}")
 
                 sleep_s = int(config['DEFAULT']['trade_interval_s'])
 
@@ -228,17 +236,17 @@ class WebSocketClient:
                 hour = datetime.datetime.now().hour   # the current hour
                 minute = datetime.datetime.now().minute  # the current minute
 
-                q = round(
-                    float(config['DEFAULT']['dca_btc_amount_HKD'])/self.polled_price, 6)
-                self._logger.info(
-                    f"{q}")
-                params = {
-                    "symbol": 'BTCHKD',
-                    "side": 'BUY',
-                    "type": 'market',
-                    "quantity": q,
-                    'timestamp': int(time.time() * 1000),
-                }
+                # q = round(
+                #     float(config['DEFAULT']['dca_btc_amount_HKD'])/self.polled_price, 6)
+                # self._logger.info(
+                #     f"{q}")
+                # params = {
+                #     "symbol": 'BTCHKD',
+                #     "side": 'BUY',
+                #     "type": 'market',
+                #     "quantity": q,
+                #     'timestamp': int(time.time() * 1000),
+                # }
 
                 # if sleep_s <= 60 and hour == 0 and minute == 4:
                 #     # execute market buy order for dca
@@ -251,37 +259,20 @@ class WebSocketClient:
 
                 time.sleep(sleep_s)
 
-        self._ping_thread=threading.Thread(target=send_ping)
-        self._ping_thread.daemon=True
+        self._ping_thread = threading.Thread(target=send_ping)
+        self._ping_thread.daemon = True
         self._ping_thread.start()
 
     def _get_polled_price(self):
-        url="https://api-pro.hashkey.com/quote/v1/ticker/bookTicker"
-        headers={"accept": "application/json"}
+        url = "https://api-pro.hashkey.com/quote/v1/ticker/bookTicker"
+        headers = {"accept": "application/json"}
         try:
-            response=requests.get(url, headers=headers)
+            response = requests.get(url, headers=headers)
             # print(type(response), response.text)
             for pair in response.json():
-                if pair['s'] == 'BTCHKD':
-                    self.polled_price=float(pair['b'])
+                self.polled_price[pair['s']] = float(pair['b'])
         except Exception as e:
             self._logger.error(f"Get price error: {e}")
-
-    def unsubscribe(self):
-        if self._ws:
-            self._logger.info("Unsubscribing from topics")
-            for topic in self.subed_topic:
-                unsub={
-                    "symbol": "BTCUSD",
-                    "topic": topic,
-                    "event": "cancel_all",
-                    "params": {
-                        # "limit": "100",
-                        "binary": False
-                    },
-                    "id": 1
-                }
-                self._ws.send(json.dumps(unsub))
 
     def connect(self):
         if not self.listen_key:
@@ -306,8 +297,9 @@ if __name__ == '__main__':
 
     user_key = config['DEFAULT']['access']
     user_secret = config['DEFAULT']['secret']
-    subed_topics = ["trade"]
+    subed_topics = ["depth"]
+    subed_symbols = ["BTCUSD", "BTCHKD"]
 
-    client = WebSocketClient(user_key, user_secret, subed_topics)
+    client = WebSocketClient(user_key, user_secret, subed_topics, subed_symbols)
 
     client.connect()
