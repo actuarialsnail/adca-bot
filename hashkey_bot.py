@@ -82,7 +82,7 @@ class WebSocketClient:
 
         try:
             response = requests.post(
-                url=f"https://api-pro.hashkey.com/api/v1.1/spot/order", headers=api_headers, data=params)
+                url=f"https://api-pro.hashkey.com/api/v1/spot/order", headers=api_headers, data=params)
 
             res = response.json()
             return res
@@ -236,26 +236,20 @@ class WebSocketClient:
                 hour = datetime.datetime.now().hour   # the current hour
                 minute = datetime.datetime.now().minute  # the current minute
 
-                # q = round(
-                #     float(config['DEFAULT']['dca_btc_amount_HKD'])/self.polled_price, 6)
-                # self._logger.info(
-                #     f"{q}")
-                # params = {
-                #     "symbol": 'BTCHKD',
-                #     "side": 'BUY',
-                #     "type": 'market',
-                #     "quantity": q,
-                #     'timestamp': int(time.time() * 1000),
-                # }
+                amt = round(
+                    float(config['DEFAULT']['dca_BTCHKD_amount']))
+                dca_params = {
+                    "symbol": 'BTCHKD',
+                    "side": 'BUY',
+                    "type": 'market',
+                    "quantity": amt,  # v1 api - quantity is amount for market buy
+                    'timestamp': int(time.time() * 1000),
+                }
 
-                # if sleep_s <= 60 and hour == 0 and minute == 4:
-                #     # execute market buy order for dca
-                #     self._logger.info(
-                #         f"New buy market orders created: {self.create_new_order(params)}")
-                # elif sleep_s > 60 and sleep_s <= 3600 and hour == 23:
-                #     # execute market buy order for dca
-                #     self._logger.info(
-                #         f"New buy market orders created: {self.create_new_order(params)}")
+                if hour == config['DEFAULT']['dca_hour'] and minute == config['DEFAULT']['dca_minute']:
+                    # execute market buy order for dca, assume sleep is 60s
+                    self._logger.info(
+                        f"New buy market orders created: {self.create_new_order(dca_params)}")
 
                 time.sleep(sleep_s)
 
@@ -300,6 +294,7 @@ if __name__ == '__main__':
     subed_topics = ["depth"]
     subed_symbols = ["BTCUSD", "BTCHKD"]
 
-    client = WebSocketClient(user_key, user_secret, subed_topics, subed_symbols)
+    client = WebSocketClient(user_key, user_secret,
+                             subed_topics, subed_symbols)
 
     client.connect()
