@@ -246,7 +246,7 @@ class WebSocketClient:
                     'timestamp': int(time.time() * 1000),
                 }
 
-                if hour == config['DEFAULT']['dca_hour'] and minute == config['DEFAULT']['dca_minute']:
+                if hour == int(config['DEFAULT']['dca_hour']) and minute == int(config['DEFAULT']['dca_minute']):
                     # execute market buy order for dca, assume sleep is 60s
                     self._logger.info(
                         f"New buy market orders created: {self.create_new_order(dca_params)}")
