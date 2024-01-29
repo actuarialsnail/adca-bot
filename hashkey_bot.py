@@ -123,6 +123,11 @@ class WebSocketClient:
         if "pong" in data:
             # Received a pong message from the server
             self._logger.info("Received pong message")
+            ping_message = {
+                # Send a timestamp as the ping message
+                "ping": int(time.time() * 1000)
+            }
+            self._ws.send(json.dumps(ping_message))
 
         # Handle the received market data here
         # Note Private WS does not provide public data, separate ws required
