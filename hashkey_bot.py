@@ -14,6 +14,7 @@ configFilePath = r'./config/config_hashkey.cfg'
 config.read(configFilePath)
 
 trade_pairs = config['DEFAULT']['trade_pairs'].split(',')
+dca_pairs = config['DEFAULT']['dca_pairs'].split(',')
 
 
 def set_interval(func, sec):
@@ -236,20 +237,20 @@ class WebSocketClient:
                 hour = datetime.datetime.now().hour   # the current hour
                 minute = datetime.datetime.now().minute  # the current minute
 
-                amt = round(
-                    float(config['DEFAULT']['dca_BTCHKD_amount']))
-                dca_params = {
-                    "symbol": 'BTCHKD',
-                    "side": 'BUY',
-                    "type": 'market',
-                    "quantity": amt,  # v1 api - quantity is amount for market buy
-                    'timestamp': int(time.time() * 1000),
-                }
-
                 if hour == int(config['DEFAULT']['dca_hour']) and minute == int(config['DEFAULT']['dca_minute']):
-                    # execute market buy order for dca, assume sleep is 60s
-                    self._logger.info(
-                        f"New buy market orders created: {self.create_new_order(dca_params)}")
+                    for pair in dca_pairs:
+                        amt = round(
+                            float(config['DEFAULT']['dca_' + pair + '_amount']))
+                        dca_params = {
+                            "symbol": pair,
+                            "side": 'BUY',
+                            "type": 'market',
+                            "quantity": amt,  # v1 api - quantity is amount for market buy
+                            'timestamp': int(time.time() * 1000),
+                        }
+                        # execute market buy order for dca, assume sleep is 60s
+                        self._logger.info(
+                            f"New buy market orders created: {self.create_new_order(dca_params)}")
 
                 time.sleep(sleep_s)
 
