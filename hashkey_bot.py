@@ -8,6 +8,8 @@ import threading
 import requests
 import datetime
 import configparser
+import pandas as pd
+import os
 
 config = configparser.ConfigParser()
 configFilePath = r'./config/config_hashkey.cfg'
@@ -16,6 +18,13 @@ config.read(configFilePath)
 trade_pairs = config['DEFAULT']['trade_pairs'].split(',')
 dca_pairs = config['DEFAULT']['dca_pairs'].split(',')
 
+df_file_path = "/reports/trade_data.feather"
+if os.path.isfile(df_file_path):
+    trade_df = pd.read_feather('df_file_path')
+else:
+    columns = ['Timestamp', 'Strategy', 'Symbol', 'Buy_ID', 'Buy_Qty', 'Buy_Price', 'Buy_Fee',
+               'Buy_Total', 'Sell_ID', 'Sell_Qty', 'Sell_Price', 'Sell_Fee', 'Sell_Total', 'P_L']
+    trades_df = pd.DataFrame(columns=columns)
 
 def set_interval(func, sec):
     def func_wrapper():
@@ -132,6 +141,24 @@ class WebSocketClient:
         if isinstance(data, list):
             for order in data:
                 if order["e"] == "executionReport" and order["S"] == "BUY" and order["o"] == "LIMIT" and order["X"] == "FILLED":
+                    # log the buy limit order in the df
+                    unix_timestamp_sec = order["E"] / 1000
+                    dt_object = datetime.datetime.fromtimestamp(
+                        unix_timestamp_sec)
+                    readable_time = dt_object.strftime('%Y-%m-%d %H:%M:%S')
+                    new_trade = {
+                        'Timestamp': readable_time,
+                        'Strategy': "Market Maker",
+                        'Symbol': order["s"],
+                        'Buy_ID': order["i"],
+                        'Buy_Qty': order["q"],
+                        'Buy_Price': order["p"],
+                        'Buy_Fee': order["n"],
+                        'Buy_Total': order["Z"],
+                    }
+                    trades_df = trades_df.append(new_trade, ignore_index=True)
+                    trades_df.to_feather(df_file_path)
+
                     # set up a limit sell order with profit margin
                     sell_price = round(
                         float(order['p']) * float(config['DEFAULT']['sell_limit_margin']))
@@ -142,6 +169,7 @@ class WebSocketClient:
                         "type": 'LIMIT',
                         "quantity": order['q'],
                         'timestamp': int(time.time() * 1000),
+                        'newClientOrderId': order['i']
                     }
                     self.create_new_order(params)
 
@@ -173,6 +201,9 @@ class WebSocketClient:
                         'timestamp': int(time.time() * 1000),
                     }
                     self.create_new_order(params)
+
+                if order["e"] == "executionReport" and order["S"] == "SELL" and order["o"] == "LIMIT" and order["X"] == "FILLED":
+                    # log the sell limit order in the df
 
     def _on_error(self, ws, error):
         self._logger.error(f"WebSocket error: {error}")
