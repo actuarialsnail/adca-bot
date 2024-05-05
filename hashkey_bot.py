@@ -18,13 +18,15 @@ config.read(configFilePath)
 trade_pairs = config['DEFAULT']['trade_pairs'].split(',')
 dca_pairs = config['DEFAULT']['dca_pairs'].split(',')
 
-df_file_path = "/reports/trade_data.feather"
+df_file_path = "/reports/trade_data.csv"
 if os.path.isfile(df_file_path):
-    trade_df = pd.read_feather('df_file_path')
+    trades_df = pd.read_csv('df_file_path')
+    print('Existing dataframe found and loaded')
 else:
     columns = ['Strategy', 'Symbol', 'Buy_Time' 'Buy_ID', 'Buy_Qty', 'Buy_Price', 'Buy_Fee',
                'Buy_Total', 'Sell_Time', 'Sell_ID', 'Sell_Qty', 'Sell_Price', 'Sell_Fee', 'Sell_Total', 'P_L']
     trades_df = pd.DataFrame(columns=columns)
+    print('No dataframe found, create new')
 
 
 def set_interval(func, sec):
@@ -140,6 +142,7 @@ class WebSocketClient:
 
         # Handle the received private stream updates here
         if isinstance(data, list):
+            global trades_df
             for order in data:
                 if order["e"] == "executionReport" and order["S"] == "BUY" and order["o"] == "LIMIT" and order["X"] == "FILLED":
                     # log the buy limit order in the df
@@ -158,6 +161,8 @@ class WebSocketClient:
                         'Buy_Total': order["Z"],
                     }
                     trades_df = trades_df.append(new_trade)
+                    # update the df to file for each order notification
+                    trades_df.to_csv(df_file_path)
 
                     # set up a limit sell order with profit margin
                     sell_price = round(
@@ -206,6 +211,8 @@ class WebSocketClient:
                         'Buy_Total': order["Z"],
                     }
                     trades_df = trades_df.append(new_trade)
+                    # update the df to file for each order notification
+                    trades_df.to_csv(df_file_path)
 
                     # set up a limit sell order with profit margin for partially filled orders that are cancelled
                     sell_price = round(
@@ -237,7 +244,7 @@ class WebSocketClient:
                         'Sell_Total': order["Z"],
                     }
                     # use client order ID to find the corresponding buy limit order
-                    search_trade = trade_df[trade_df['Buy_ID'] == order['c']]
+                    search_trade = trades_df[trades_df['Buy_ID'] == order['c']]
                     if search_trade.empty:
                         print(
                             f"No matching trade ID '{order['c']}' found.")
@@ -248,13 +255,13 @@ class WebSocketClient:
                                       'Sell_Price', 'Sell_Fee', 'Sell_Total']] = [readable_time, order["i"], order["q"], order["p"], order["n"], order["Z"]]
                         # Get the index of the first (and only) row
                         row_index = search_trade.index[0]
-                        trade_df.loc[row_index, ['Sell_Time', 'Sell_ID', 'Sell_Qty',
-                                                 'Sell_Price', 'Sell_Fee', 'Sell_Total']
-                                     ] = search_trade[['Sell_Time', 'Sell_ID', 'Sell_Qty',
+                        trades_df.loc[row_index, ['Sell_Time', 'Sell_ID', 'Sell_Qty',
+                                                  'Sell_Price', 'Sell_Fee', 'Sell_Total']
+                                      ] = search_trade[['Sell_Time', 'Sell_ID', 'Sell_Qty',
                                                        'Sell_Price', 'Sell_Fee', 'Sell_Total']].values
 
-                # update the df to file for each order notification
-                trades_df.to_feather(df_file_path)
+                        # update the df to file for each order notification
+                        trades_df.to_csv(df_file_path)
 
     def _on_error(self, ws, error):
         self._logger.error(f"WebSocket error: {error}")
