@@ -18,15 +18,16 @@ config.read(configFilePath)
 trade_pairs = config['DEFAULT']['trade_pairs'].split(',')
 dca_pairs = config['DEFAULT']['dca_pairs'].split(',')
 
-df_file_path = "/reports/trade_data.csv"
+df_file_path = "./reports/trade_data.csv"
 if os.path.isfile(df_file_path):
-    trades_df = pd.read_csv('df_file_path')
+    trades_df = pd.read_csv(df_file_path)
     print('Existing dataframe found and loaded')
 else:
-    columns = ['Strategy', 'Symbol', 'Buy_Time' 'Buy_ID', 'Buy_Qty', 'Buy_Price', 'Buy_Fee',
+    columns = ['Strategy', 'Symbol', 'Buy_Time', 'Buy_ID', 'Buy_Qty', 'Buy_Price', 'Buy_Fee',
                'Buy_Total', 'Sell_Time', 'Sell_ID', 'Sell_Qty', 'Sell_Price', 'Sell_Fee', 'Sell_Total', 'P_L']
     trades_df = pd.DataFrame(columns=columns)
     print('No dataframe found, create new')
+# trades_df.to_csv(df_file_path, index=False)
 
 
 def set_interval(func, sec):
@@ -146,7 +147,7 @@ class WebSocketClient:
             for order in data:
                 if order["e"] == "executionReport" and order["S"] == "BUY" and order["o"] == "LIMIT" and order["X"] == "FILLED":
                     # log the buy limit order in the df
-                    unix_timestamp_sec = order["E"] / 1000
+                    unix_timestamp_sec = int(order["E"]) / 1000
                     dt_object = datetime.datetime.fromtimestamp(
                         unix_timestamp_sec)
                     readable_time = dt_object.strftime('%Y-%m-%d %H:%M:%S')
@@ -160,9 +161,9 @@ class WebSocketClient:
                         'Buy_Fee': order["n"],
                         'Buy_Total': order["Z"],
                     }
-                    trades_df = trades_df.append(new_trade)
+                    trades_df = trades_df.append(new_trade, ignore_index=True)
                     # update the df to file for each order notification
-                    trades_df.to_csv(df_file_path)
+                    trades_df.to_csv(df_file_path, index=False)
 
                     # set up a limit sell order with profit margin
                     sell_price = round(
@@ -195,7 +196,7 @@ class WebSocketClient:
 
                 if order["e"] == "executionReport" and order["S"] == "BUY" and order["o"] == "LIMIT" and order["X"] == "PARTIALLY_CANCELED":
                     # log the buy limit order in the df
-                    unix_timestamp_sec = order["E"] / 1000
+                    unix_timestamp_sec = int(order["E"]) / 1000
                     dt_object = datetime.datetime.fromtimestamp(
                         unix_timestamp_sec)
                     readable_time = dt_object.strftime('%Y-%m-%d %H:%M:%S')
@@ -204,15 +205,15 @@ class WebSocketClient:
                         'Symbol': order["s"],
                         'Buy_Time': readable_time,
                         # Use execution ID to track separately from completely filled orders
-                        'Buy_ID': order["d"],
-                        'Buy_Qty': order["q"],
+                        'Buy_ID': order["c"],
+                        'Buy_Qty': order["z"],
                         'Buy_Price': order["p"],
                         'Buy_Fee': order["n"],
                         'Buy_Total': order["Z"],
                     }
-                    trades_df = trades_df.append(new_trade)
+                    trades_df = trades_df.append(new_trade, ignore_index=True)
                     # update the df to file for each order notification
-                    trades_df.to_csv(df_file_path)
+                    trades_df.to_csv(df_file_path, index=False)
 
                     # set up a limit sell order with profit margin for partially filled orders that are cancelled
                     sell_price = round(
@@ -225,24 +226,17 @@ class WebSocketClient:
                         "quantity": order['z'],
                         'timestamp': int(time.time() * 1000),
                         # Use execution ID to track separately from completely filled orders
-                        'newClientOrderId': order['d']
+                        'newClientOrderId': order['c']
                     }
                     self.create_new_order(params)
 
                 if order["e"] == "executionReport" and order["S"] == "SELL" and order["o"] == "LIMIT" and order["X"] == "FILLED":
                     # log the sell limit order in the df
-                    unix_timestamp_sec = order["E"] / 1000
+                    unix_timestamp_sec = int(order["E"]) / 1000
                     dt_object = datetime.datetime.fromtimestamp(
                         unix_timestamp_sec)
                     readable_time = dt_object.strftime('%Y-%m-%d %H:%M:%S')
-                    update_trade = {
-                        'Sell_Time': readable_time,
-                        'Sell_ID': order["i"],
-                        'Sell_Qty': order["q"],
-                        'Sell_Price': order["p"],
-                        'Sell_Fee': order["n"],
-                        'Sell_Total': order["Z"],
-                    }
+
                     # use client order ID to find the corresponding buy limit order
                     search_trade = trades_df[trades_df['Buy_ID'] == order['c']]
                     if search_trade.empty:
@@ -252,7 +246,7 @@ class WebSocketClient:
                         print(
                             f"Matching trade ID '{order['c']}' found.")
                         search_trade[['Sell_Time', 'Sell_ID', 'Sell_Qty',
-                                      'Sell_Price', 'Sell_Fee', 'Sell_Total']] = [readable_time, order["i"], order["q"], order["p"], order["n"], order["Z"]]
+                                      'Sell_Price', 'Sell_Fee', 'Sell_Total']] = [readable_time, order["c"], order["q"], order["p"], order["n"], order["Z"]]
                         # Get the index of the first (and only) row
                         row_index = search_trade.index[0]
                         trades_df.loc[row_index, ['Sell_Time', 'Sell_ID', 'Sell_Qty',
@@ -261,7 +255,7 @@ class WebSocketClient:
                                                        'Sell_Price', 'Sell_Fee', 'Sell_Total']].values
 
                         # update the df to file for each order notification
-                        trades_df.to_csv(df_file_path)
+                        trades_df.to_csv(df_file_path, index=False)
 
     def _on_error(self, ws, error):
         self._logger.error(f"WebSocket error: {error}")
