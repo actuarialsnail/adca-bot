@@ -241,18 +241,15 @@ class WebSocketClient:
                     search_trade = trades_df[trades_df['Buy_ID'] == order['c']]
                     if search_trade.empty:
                         print(
-                            f"No matching trade ID '{order['c']}' found.")
+                            f"No matching buy trade ID '{order['c']}' found.")
                     else:
                         print(
-                            f"Matching trade ID '{order['c']}' found.")
-                        search_trade[['Sell_Time', 'Sell_ID', 'Sell_Qty',
-                                      'Sell_Price', 'Sell_Fee', 'Sell_Total']] = [readable_time, order["c"], order["q"], order["p"], order["n"], order["Z"]]
+                            f"Matching buy trade ID '{order['c']}' found.")
                         # Get the index of the first (and only) row
-                        row_index = search_trade.index[0]
+                        row_index = search_trade.index[0] # there should only be one match however
                         trades_df.loc[row_index, ['Sell_Time', 'Sell_ID', 'Sell_Qty',
                                                   'Sell_Price', 'Sell_Fee', 'Sell_Total']
-                                      ] = search_trade[['Sell_Time', 'Sell_ID', 'Sell_Qty',
-                                                       'Sell_Price', 'Sell_Fee', 'Sell_Total']].values
+                                      ] = [readable_time, order["c"], order["q"], order["p"], order["n"], order["Z"]]
 
                         # update the df to file for each order notification
                         trades_df.to_csv(df_file_path, index=False)
