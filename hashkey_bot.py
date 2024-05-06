@@ -155,7 +155,7 @@ class WebSocketClient:
                         'Strategy': "Market Maker",
                         'Symbol': order["s"],
                         'Buy_Time': readable_time,
-                        'Buy_ID': order["i"],
+                        'Buy_ID': str(order["i"]),
                         'Buy_Qty': order["q"],
                         'Buy_Price': order["p"],
                         'Buy_Fee': order["n"],
@@ -175,7 +175,7 @@ class WebSocketClient:
                         "type": 'LIMIT',
                         "quantity": order['q'],
                         'timestamp': int(time.time() * 1000),
-                        'newClientOrderId': order['i']
+                        'newClientOrderId': str(order['i'])
                     }
                     self.create_new_order(params)
 
@@ -205,7 +205,7 @@ class WebSocketClient:
                         'Symbol': order["s"],
                         'Buy_Time': readable_time,
                         # Use execution ID to track separately from completely filled orders
-                        'Buy_ID': order["c"],
+                        'Buy_ID': str(order["c"]),
                         'Buy_Qty': order["z"],
                         'Buy_Price': order["p"],
                         'Buy_Fee': order["n"],
@@ -226,7 +226,7 @@ class WebSocketClient:
                         "quantity": order['z'],
                         'timestamp': int(time.time() * 1000),
                         # Use execution ID to track separately from completely filled orders
-                        'newClientOrderId': order['c']
+                        'newClientOrderId': str(order['c'])
                     }
                     self.create_new_order(params)
 
@@ -238,18 +238,33 @@ class WebSocketClient:
                     readable_time = dt_object.strftime('%Y-%m-%d %H:%M:%S')
 
                     # use client order ID to find the corresponding buy limit order
-                    search_trade = trades_df[trades_df['Buy_ID'] == order['c']]
+                    search_trade = trades_df[trades_df['Buy_ID'].astype(str) == str(
+                        order['c'])]
                     if search_trade.empty:
                         print(
-                            f"No matching buy trade ID '{order['c']}' found.")
+                            f"No matching buy trade ID '{order['c']}' found. Append to df.")
+                        new_trade = {
+                            'Sell_Time': readable_time,
+                            'Sell_ID': str(order["c"]),
+                            'Sell_Qty': order["q"],
+                            'Sell_Price': order["p"],
+                            'Sell_Fee': order["n"],
+                            'Sell_Total': order["Z"]
+                        }
+                        trades_df = trades_df.append(
+                            new_trade, ignore_index=True)
+                        # update the df to file for each order notification
+                        trades_df.to_csv(df_file_path, index=False)
+
                     else:
                         print(
-                            f"Matching buy trade ID '{order['c']}' found.")
+                            f"Matching buy trade ID '{order['c']}' found. Update record.")
                         # Get the index of the first (and only) row
-                        row_index = search_trade.index[0] # there should only be one match however
+                        # there should only be one match however
+                        row_index = search_trade.index[0]
                         trades_df.loc[row_index, ['Sell_Time', 'Sell_ID', 'Sell_Qty',
                                                   'Sell_Price', 'Sell_Fee', 'Sell_Total']
-                                      ] = [readable_time, order["c"], order["q"], order["p"], order["n"], order["Z"]]
+                                      ] = [readable_time, str(order["c"]), order["q"], order["p"], order["n"], order["Z"]]
 
                         # update the df to file for each order notification
                         trades_df.to_csv(df_file_path, index=False)
