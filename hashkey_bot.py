@@ -30,15 +30,6 @@ else:
 # trades_df.to_csv(df_file_path, index=False)
 
 
-def set_interval(func, sec):
-    def func_wrapper():
-        set_interval(func, sec)
-        func()
-    t = threading.Timer(sec, func_wrapper)
-    t.start()
-    return t
-
-
 class WebSocketClient:
     def __init__(self, user_key, user_secret, subed_topic=[], subed_symbols=[]):
         self.user_key = user_key
@@ -49,6 +40,9 @@ class WebSocketClient:
         self._logger = logging.getLogger(__name__)
         self._ws = None
         self._ping_thread = None
+        self.last_listen_key_extend = time.time()
+        self._limit_order_thread = None
+        self._DCA_thread = None
         self.polled_price = {}
         self.ws_price = {}
 
@@ -73,6 +67,27 @@ class WebSocketClient:
             self._logger.info(f"Generated listen key: {self.listen_key}")
         else:
             raise Exception("Failed to generate listen key")
+
+    def extend_listenKey_timeLimit(self):
+        params = {
+            'timestamp': int(time.time() * 1000),
+            'listenKey': self.listen_key,
+        }
+        api_headers = {
+            'X-HK-APIKEY': self.user_key,
+            'content-type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        }
+        signature = self.create_hmac256_signature(
+            secret_key=self.user_secret, params=params)
+        params.update({
+            'signature': signature,
+        })
+        response = requests.put(
+            url=f"https://api-pro.hashkey.com/api/v1/userDataStream", headers=api_headers, data=params)
+        if response.status_code == 200:
+            self._logger.info("Successfully extended listen key validity.")
+        else:
+            self._logger.error("Failed to extend listen key validity.")
 
     def create_hmac256_signature(self, secret_key, params, data=""):
         for k, v in params.items():
@@ -177,7 +192,8 @@ class WebSocketClient:
                         'timestamp': int(time.time() * 1000),
                         'newClientOrderId': str(order['i'])
                     }
-                    self.create_new_order(params)
+                    self._logger.info(
+                        f"Sell limit order created: {self.create_new_order(params)}")
 
                 if order["e"] == "executionReport" and order["S"] == "SELL" and order["o"] == "LIMIT" and order["X"] == "REJECTED":
                     self._logger.error(f"Previous sell order rejected")
@@ -228,7 +244,8 @@ class WebSocketClient:
                         # Use execution ID to track separately from completely filled orders
                         'newClientOrderId': str(order['c'])
                     }
-                    self.create_new_order(params)
+                    self._logger.info(
+                        f"Sell limit order created: {self.create_new_order(params)}")
 
                 if order["e"] == "executionReport" and order["S"] == "SELL" and order["o"] == "LIMIT" and order["X"] == "FILLED":
                     # log the sell limit order in the df
@@ -293,17 +310,29 @@ class WebSocketClient:
 
         # Start the ping thread after connecting
         self._start_ping_thread()
+        self._start_limit_order_thread()
+        self._start_DCA_thread()
 
     def _start_ping_thread(self):
         def send_ping():
             while self._ws:
-                ping_message = {
-                    # Send a timestamp as the ping message
-                    "ping": int(time.time() * 1000)
-                }
-                self._ws.send(json.dumps(ping_message))
-                self._logger.info(f"Send ping message: {ping_message}")
+                current_time = time.time()
+                if current_time - self.last_listen_key_extend > 1800:  # Extend listen key every 30 minutes
+                    self.extend_listenKey_timeLimit()
+                    self.last_listen_key_extend = current_time
 
+                ping_message = {"ping": int(time.time() * 1000)}
+                self._ws.send(json.dumps(ping_message))
+                self._logger.info(f"Sent ping message: {ping_message}")
+                time.sleep(5)
+
+        self._ping_thread = threading.Thread(target=send_ping)
+        self._ping_thread.daemon = True
+        self._ping_thread.start()
+
+    def _start_limit_order_thread(self):
+        def send_limit_orders():
+            while self._ws:
                 # cancel all buy limit orders
                 self._logger.info(
                     f"Buy orders cancelled: {self.cancel_all_buy_orders()}")
@@ -326,8 +355,17 @@ class WebSocketClient:
                     self._logger.info(
                         f"New buy limit orders created: {self.create_new_order(params)}")
 
-                sleep_s = int(config['DEFAULT']['trade_interval_s'])
+                timeout = int(config['DEFAULT']['trade_interval_s'])
 
+                time.sleep(timeout)
+
+        self._limit_order_thread = threading.Thread(target=send_limit_orders)
+        self._limit_order_thread.daemon = True
+        self._limit_order_thread.start()
+
+    def _start_DCA_thread(self):
+        def send_DCA_orders():
+            while self._ws:
                 # run scheduled dca buy market orders
                 hour = datetime.datetime.now().hour   # the current hour
                 minute = datetime.datetime.now().minute  # the current minute
@@ -346,12 +384,10 @@ class WebSocketClient:
                         # execute market buy order for dca, assume sleep is 60s
                         self._logger.info(
                             f"New buy market orders created: {self.create_new_order(dca_params)}")
-
-                time.sleep(sleep_s)
-
-        self._ping_thread = threading.Thread(target=send_ping)
-        self._ping_thread.daemon = True
-        self._ping_thread.start()
+                time.sleep(60)
+        self._DCA_thread = threading.Thread(target=send_DCA_orders)
+        self._DCA_thread.daemon = True
+        self._DCA_thread.start()
 
     def _get_polled_price(self):
         url = "https://api-pro.hashkey.com/quote/v1/ticker/bookTicker"
