@@ -146,13 +146,14 @@ class WebSocketClient:
 
     def _on_message(self, ws, message):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-        self._logger.info(f"{current_time} - Received message: {message}")
 
         data = json.loads(message)
-        if "pong" in data:
+        if "pong" in data or "ping" in data:
             # Received a pong message from the server
-            self._logger.info("Received pong message")
-
+            # self._logger.info("Received pong message")
+            pass
+        else:
+            self._logger.info(f"{current_time} - Received message: {message}")
         # Handle the received market data here
         # Note Private WS does not provide public data, separate ws required
 
@@ -160,131 +161,82 @@ class WebSocketClient:
         if isinstance(data, list):
             global trades_df
             for order in data:
-                if order["e"] == "executionReport" and order["S"] == "BUY" and order["o"] == "LIMIT" and order["X"] == "FILLED":
-                    # log the buy limit order in the df
-                    unix_timestamp_sec = int(order["E"]) / 1000
-                    dt_object = datetime.datetime.fromtimestamp(
-                        unix_timestamp_sec)
-                    readable_time = dt_object.strftime('%Y-%m-%d %H:%M:%S')
-                    new_trade = {
-                        'Strategy': "Market Maker",
-                        'Symbol': order["s"],
-                        'Buy_Time': readable_time,
-                        'Buy_ID': str(order["i"]),
-                        'Buy_Qty': order["q"],
-                        'Buy_Price': order["p"],
-                        'Buy_Fee': order["n"],
-                        'Buy_Total': order["Z"],
-                    }
-                    trades_df = trades_df.append(new_trade, ignore_index=True)
-                    # update the df to file for each order notification
-                    trades_df.to_csv(df_file_path, index=False)
-
-                    # set up a limit sell order with profit margin
-                    sell_price = round(
-                        float(order['p']) * float(config['DEFAULT']['sell_limit_margin']))
-                    params = {
-                        "symbol": order['s'],
-                        "price": sell_price,
-                        "side": 'SELL',
-                        "type": 'LIMIT',
-                        "quantity": order['q'],
-                        'timestamp': int(time.time() * 1000),
-                        'newClientOrderId': str(order['i'])
-                    }
-                    self._logger.info(
-                        f"Sell limit order created: {self.create_new_order(params)}")
-
-                if order["e"] == "executionReport" and order["S"] == "SELL" and order["o"] == "LIMIT" and order["X"] == "REJECTED":
-                    self._logger.error(f"Previous sell order rejected")
-                    # check for failed sell order, if it's because price is below bid, try to increase the sell limit price
-                    sell_price = round(
-                        float(order['p']) * float(config['DEFAULT']['sell_limit_margin']))
-                    params = {
-                        "symbol": order['s'],
-                        "price": sell_price,
-                        "side": 'SELL',
-                        "type": 'LIMIT',
-                        "quantity": order['q'],
-                        'timestamp': int(time.time() * 1000),
-                    }
-                    self.create_new_order(params)
-
-                if order["e"] == "executionReport" and order["S"] == "BUY" and order["o"] == "LIMIT" and order["X"] == "PARTIALLY_CANCELED":
-                    # log the buy limit order in the df
-                    unix_timestamp_sec = int(order["E"]) / 1000
-                    dt_object = datetime.datetime.fromtimestamp(
-                        unix_timestamp_sec)
-                    readable_time = dt_object.strftime('%Y-%m-%d %H:%M:%S')
-                    new_trade = {
-                        'Strategy': "Market Maker",
-                        'Symbol': order["s"],
-                        'Buy_Time': readable_time,
-                        # Use execution ID to track separately from completely filled orders
-                        'Buy_ID': str(order["c"]),
-                        'Buy_Qty': order["z"],
-                        'Buy_Price': order["p"],
-                        'Buy_Fee': order["n"],
-                        'Buy_Total': order["Z"],
-                    }
-                    trades_df = trades_df.append(new_trade, ignore_index=True)
-                    # update the df to file for each order notification
-                    trades_df.to_csv(df_file_path, index=False)
-
-                    # set up a limit sell order with profit margin for partially filled orders that are cancelled
-                    sell_price = round(
-                        float(order['p']) * float(config['DEFAULT']['sell_limit_margin']))
-                    params = {
-                        "symbol": order['s'],
-                        "price": sell_price,
-                        "side": 'SELL',
-                        "type": 'LIMIT',
-                        "quantity": order['z'],
-                        'timestamp': int(time.time() * 1000),
-                        # Use execution ID to track separately from completely filled orders
-                        'newClientOrderId': str(order['c'])
-                    }
-                    self._logger.info(
-                        f"Sell limit order created: {self.create_new_order(params)}")
-
-                if order["e"] == "executionReport" and order["S"] == "SELL" and order["o"] == "LIMIT" and order["X"] == "FILLED":
-                    # log the sell limit order in the df
-                    unix_timestamp_sec = int(order["E"]) / 1000
-                    dt_object = datetime.datetime.fromtimestamp(
-                        unix_timestamp_sec)
-                    readable_time = dt_object.strftime('%Y-%m-%d %H:%M:%S')
-
-                    # use client order ID to find the corresponding buy limit order
-                    search_trade = trades_df[trades_df['Buy_ID'].astype(str) == str(
-                        order['c'])]
-                    if search_trade.empty:
-                        print(
-                            f"No matching buy trade ID '{order['c']}' found. Append to df.")
+                try:
+                    if order["e"] == "executionReport" and order["S"] == "BUY" and order["o"] == "LIMIT" and order["X"] == "FILLED":
+                        # log the buy limit order in the df
+                        unix_timestamp_sec = int(order["E"]) / 1000
+                        dt_object = datetime.datetime.fromtimestamp(unix_timestamp_sec)
+                        readable_time = dt_object.strftime('%Y-%m-%d %H:%M:%S')
                         new_trade = {
-                            'Sell_Time': readable_time,
-                            'Sell_ID': str(order["c"]),
-                            'Sell_Qty': order["q"],
-                            'Sell_Price': order["p"],
-                            'Sell_Fee': order["n"],
-                            'Sell_Total': order["Z"]
+                            'Strategy': "Market Maker",
+                            'Symbol': order["s"],
+                            'Buy_Time': readable_time,
+                            'Buy_ID': str(order["i"]),
+                            'Buy_Qty': order["q"],
+                            'Buy_Price': order["p"],
+                            'Buy_Fee': order["n"],
+                            'Buy_Total': order["Z"],
                         }
-                        trades_df = trades_df.append(
-                            new_trade, ignore_index=True)
+                        # Convert new_trade to a DataFrame
+                        new_trade_df = pd.DataFrame([new_trade])
+                        # Concatenate the new_trade_df with trades_df
+                        trades_df = pd.concat([trades_df, new_trade_df], ignore_index=True)
                         # update the df to file for each order notification
                         trades_df.to_csv(df_file_path, index=False)
+                        self._logger.info(f"Updated trades_df with new buy order: {new_trade}")
 
-                    else:
-                        print(
-                            f"Matching buy trade ID '{order['c']}' found. Update record.")
-                        # Get the index of the first (and only) row
-                        # there should only be one match however
-                        row_index = search_trade.index[0]
-                        trades_df.loc[row_index, ['Sell_Time', 'Sell_ID', 'Sell_Qty',
-                                                  'Sell_Price', 'Sell_Fee', 'Sell_Total']
-                                      ] = [readable_time, str(order["c"]), order["q"], order["p"], order["n"], order["Z"]]
+                        # set up a limit sell order with profit margin
+                        sell_price = round(float(order['p']) * float(config['DEFAULT']['sell_limit_margin']))
+                        params = {
+                            "symbol": order['s'],
+                            "price": sell_price,
+                            "side": 'SELL',
+                            "type": 'LIMIT',
+                            "quantity": order['q'],
+                            'timestamp': int(time.time() * 1000),
+                            'newClientOrderId': str(order['i'])
+                        }
+                        self._logger.info(f"Sell limit order created: {self.create_new_order(params)}")
 
-                        # update the df to file for each order notification
-                        trades_df.to_csv(df_file_path, index=False)
+                    if order["e"] == "executionReport" and order["S"] == "SELL" and order["o"] == "LIMIT" and order["X"] == "FILLED":
+                        # log the sell limit order in the df
+                        unix_timestamp_sec = int(order["E"]) / 1000
+                        dt_object = datetime.datetime.fromtimestamp(unix_timestamp_sec)
+                        readable_time = dt_object.strftime('%Y-%m-%d %H:%M:%S')
+
+                        # use client order ID to find the corresponding buy limit order
+                        search_trade = trades_df[trades_df['Buy_ID'].astype(str) == str(order['c'])]
+                        if search_trade.empty:
+                            self._logger.info(f"No matching buy trade ID '{order['c']}' found. Append to df.")
+                            new_trade = {
+                                'Sell_Time': readable_time,
+                                'Sell_ID': str(order["c"]),
+                                'Sell_Qty': order["q"],
+                                'Sell_Price': order["p"],
+                                'Sell_Fee': order["n"],
+                                'Sell_Total': order["Z"]
+                            }
+                            # Convert new_trade to a DataFrame
+                            new_trade_df = pd.DataFrame([new_trade])
+                            # Concatenate the new_trade_df with trades_df
+                            trades_df = pd.concat([trades_df, new_trade_df], ignore_index=True)
+                            # update the df to file for each order notification
+                            trades_df.to_csv(df_file_path, index=False)
+                            self._logger.info(f"Updated trades_df with new sell order: {new_trade}")
+                        else:
+                            self._logger.info(f"Matching buy trade ID '{order['c']}' found. Update record.")
+                            # Get the index of the first (and only) row
+                            # there should only be one match however
+                            row_index = search_trade.index[0]
+                            trades_df.loc[row_index, ['Sell_Time', 'Sell_ID', 'Sell_Qty',
+                                                      'Sell_Price', 'Sell_Fee', 'Sell_Total']
+                                          ] = [readable_time, str(order["c"]), order["q"], order["p"], order["n"], order["Z"]]
+
+                            # update the df to file for each order notification
+                            trades_df.to_csv(df_file_path, index=False)
+                            self._logger.info(f"Updated trades_df with sell order for existing buy order: {order['c']}")
+                except Exception as e:
+                    self._logger.error(f"Error processing order: {order}, error: {e}")
 
     def _on_error(self, ws, error):
         self._logger.error(f"WebSocket error: {error}")
@@ -323,7 +275,7 @@ class WebSocketClient:
 
                 ping_message = {"ping": int(time.time() * 1000)}
                 self._ws.send(json.dumps(ping_message))
-                self._logger.info(f"Sent ping message: {ping_message}")
+                # self._logger.info(f"Sent ping message: {ping_message}")
                 time.sleep(5)
 
         self._ping_thread = threading.Thread(target=send_ping)
@@ -381,7 +333,7 @@ class WebSocketClient:
                             "quantity": amt,  # v1 api - quantity is amount for market buy
                             'timestamp': int(time.time() * 1000),
                         }
-                        # execute market buy order for dca, assume sleep is 60s
+                        # execute market buy order for dca, assume sleep is > 60s so not checking seconds
                         self._logger.info(
                             f"New buy market orders created: {self.create_new_order(dca_params)}")
                 time.sleep(60)
