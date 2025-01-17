@@ -39,7 +39,7 @@ else:
                'Buy_Total', 'Sell_Time', 'Sell_ID', 'Sell_Qty', 'Sell_Price', 'Sell_Fee', 'Sell_Total', 'P_L']
     trades_df = pd.DataFrame(columns=columns)
     print('No dataframe found, create new')
-# trades_df.to_csv(df_file_path, index=False)
+    trades_df.to_csv(df_file_path, index=False)
 
 
 class WebSocketClient:
