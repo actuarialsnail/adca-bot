@@ -18,6 +18,18 @@ config.read(configFilePath)
 trade_pairs = config['DEFAULT']['trade_pairs'].split(',')
 dca_pairs = config['DEFAULT']['dca_pairs'].split(',')
 
+trade_pair_params = {}
+dca_pair_params = {}
+for pair in trade_pairs:
+    trade_pair_params[pair] = {
+        'buy_limit_margin': config[pair]['buy_limit_margin'],
+        'sell_limit_margin': config[pair]['sell_limit_margin'],
+        'trade_quantity': config[pair]['trade_quantity']
+    }
+    dca_pairs_params = {
+        'dca_amount': config[pair]['dca_amount']
+    }
+
 df_file_path = "./reports/trade_data.csv"
 if os.path.isfile(df_file_path):
     trades_df = pd.read_csv(df_file_path)
@@ -186,7 +198,7 @@ class WebSocketClient:
                         self._logger.info(f"Updated trades_df with new buy order: {new_trade}")
 
                         # set up a limit sell order with profit margin
-                        sell_price = round(float(order['p']) * float(config['DEFAULT']['sell_limit_margin']))
+                        sell_price = round(float(order['p']) * float(trade_pair_params[order['s']]['sell_limit_margin']))
                         params = {
                             "symbol": order['s'],
                             "price": sell_price,
@@ -295,13 +307,13 @@ class WebSocketClient:
 
                 for pair in trade_pairs:
                     buy_price = round(float(self.polled_price[pair]) *
-                                      float(config['DEFAULT']['buy_limit_margin']))
+                                      float(trade_pair_params[pair]['buy_limit_margin']))
                     params = {
                         "symbol": pair,
                         "price": buy_price,
                         "side": 'BUY',
                         "type": 'LIMIT',
-                        "quantity": config['DEFAULT']['trade_' + pair + '_quantity'],
+                        "quantity": trade_pair_params[pair]['trade_quantity'],
                         'timestamp': int(time.time() * 1000),
                     }
                     self._logger.info(
@@ -325,7 +337,7 @@ class WebSocketClient:
                 if hour == int(config['DEFAULT']['dca_hour']) and minute == int(config['DEFAULT']['dca_minute']):
                     for pair in dca_pairs:
                         amt = round(
-                            float(config['DEFAULT']['dca_' + pair + '_amount']))
+                            float(dca_pair_params[pair]['dca_amount']))
                         dca_params = {
                             "symbol": pair,
                             "side": 'BUY',
