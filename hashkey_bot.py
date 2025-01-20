@@ -25,8 +25,9 @@ for pair in trade_pairs:
         'buy_limit_margin': config[pair]['buy_limit_margin'],
         'sell_limit_margin': config[pair]['sell_limit_margin'],
         'trade_quantity': config[pair]['trade_quantity']
-    }
-    dca_pairs_params = {
+    }    
+for pair in dca_pairs:    
+    dca_pair_params[pair] = {
         'dca_amount': config[pair]['dca_amount']
     }
 
